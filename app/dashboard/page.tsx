@@ -357,7 +357,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="font-extrabold text-purple-950">Member Registration Complete</p>
-                      <p className="text-purple-900/60 text-[11px]">Welcome to Amora Luxe Privé</p>
+                      <p className="text-purple-900/60 text-[11px]">Welcome to RentasBuddy Privé</p>
                       <span className="text-[10px] text-pink-500 font-semibold block mt-0.5">Today</span>
                     </div>
                   </div>

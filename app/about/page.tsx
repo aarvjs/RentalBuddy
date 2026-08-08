@@ -69,7 +69,7 @@ export default function AboutPage() {
             href="/why-us"
             className="px-8 py-3.5 rounded-full bg-white/80 hover:bg-white border border-pink-200 text-purple-950 font-bold text-sm sm:text-base backdrop-blur-md transition-all duration-300 shadow-sm"
           >
-            Why Amora Luxe
+            Why RentasBuddy
           </Link>
         </div>
       </PageHero>
@@ -121,7 +121,7 @@ export default function AboutPage() {
                   Redefining Social Companionship for the Modern Era
                 </h2>
                 <p className="text-purple-900/80 text-base sm:text-lg leading-relaxed pt-2">
-                  Founded with the vision to eliminate social isolation and awkward solo attendance, Amora Luxe curates articulate, culturally fluent, and elegant companions for every milestone occasion.
+                  Founded with the vision to eliminate social isolation and awkward solo attendance, RentasBuddy curates articulate, culturally fluent, and elegant companions for every milestone occasion.
                 </p>
                 <p className="text-purple-900/70 text-sm sm:text-base leading-relaxed">
                   Whether attending an international film festival, hosting an executive dinner, exploring boutique art galleries, or seeking respectful companionship for a senior family member, our concierge ensures absolute discretion and warmth.
@@ -175,7 +175,7 @@ export default function AboutPage() {
                 Our Mission, Vision & Core Values
               </h2>
               <p className="text-purple-900/70 text-base sm:text-lg">
-                Every connection curated by Amora Luxe is anchored in strict ethical integrity, emotional intelligence, and mutual dignity.
+                Every connection curated by RentasBuddy is anchored in strict ethical integrity, emotional intelligence, and mutual dignity.
               </p>
             </FadeIn>
           </div>

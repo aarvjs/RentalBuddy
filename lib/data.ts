@@ -112,7 +112,7 @@ export const TESTIMONIALS: Testimonial[] = [
       "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400",
     rating: 5,
     quote:
-      "Hosting diplomatic dinners requires flawless poise and intellectual charm. My companion from Amora was articulate, multilingual, and radiated warmth. Exceptional discretion from start to finish.",
+      "Hosting diplomatic dinners requires flawless poise and intellectual charm. My companion from RentasBuddy was articulate, multilingual, and radiated warmth. Exceptional discretion from start to finish.",
     occasion: "Diplomatic Gala",
   },
   {
@@ -220,7 +220,7 @@ export const FEATURED_STORIES: FeaturedStory[] = [
 
 export const FAQS = [
   {
-    question: "How does Amora Luxe ensure strict confidentiality for clients?",
+    question: "How does RentasBuddy ensure strict confidentiality for clients?",
     answer:
       "Confidentiality is our highest priority. All client records, booking histories, and communications are secured using Swiss 256-bit encryption. We never release member details to third parties, and all companions sign legally binding, non-disclosure agreements prior to joining our roster.",
   },
@@ -285,32 +285,32 @@ export const TEAM_MEMBERS = [
 export const COMPARISON_DATA = [
   {
     feature: "Companion Verification Protocol",
-    amora: "Triple-Layer Verification & Background Screening",
+    rentasBuddy: "Triple-Layer Verification & Background Screening",
     others: "Basic Self-Reported Profiles or Unverified",
   },
   {
     feature: "Discretion & Legal Protection",
-    amora: "Legally Binding Non-Disclosure Agreement (NDA)",
+    rentasBuddy: "Legally Binding Non-Disclosure Agreement (NDA)",
     others: "No NDA Standard",
   },
   {
     feature: "24/7 Dedicated Concierge",
-    amora: "Live Senior Concierge Officer Available 24/7",
+    rentasBuddy: "Live Senior Concierge Officer Available 24/7",
     others: "Automated Bot or Slow Email Response",
   },
   {
     feature: "Pre-Event Video Meeting",
-    amora: "Included for Chemistry Check",
+    rentasBuddy: "Included for Chemistry Check",
     others: "Rarely Offered or Extra Fee",
   },
   {
     feature: "Global Travel & Yacht Logistics",
-    amora: "Full International Visa & Flight Curation",
+    rentasBuddy: "Full International Visa & Flight Curation",
     others: "Self-Managed by Client",
   },
   {
     feature: "Discreet Neutral Billing",
-    amora: "Neutral Corporate Holding Descriptor",
+    rentasBuddy: "Neutral Corporate Holding Descriptor",
     others: "Explicit Brand Names on Statements",
   },
 ];

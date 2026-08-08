@@ -41,7 +41,7 @@ function LoginForm() {
     try {
       setLoading(true);
       await loginUser(email.trim(), password);
-      setSuccessMessage("Login Successful! Welcome back to Amora Luxe.");
+      setSuccessMessage("Login Successful! Welcome back to RentasBuddy.");
       setTimeout(() => {
         router.push(redirectUrl);
       }, 1500);
@@ -230,7 +230,7 @@ export default function LoginPage() {
 
           <div className="relative z-10 my-12">
             <p className="font-serif italic text-lg leading-relaxed mb-4 text-pink-100">
-              &quot;Discretion is the cornerstone of luxury. Entering Amora guarantees complete anonymity and world-class companionship.&quot;
+              &quot;Discretion is the cornerstone of luxury. Entering RentasBuddy guarantees complete anonymity and world-class companionship.&quot;
             </p>
             <span className="text-xs font-semibold text-pink-300">— Swiss Concierge Office</span>
           </div>

@@ -103,7 +103,7 @@ export default function WhyUsPage() {
       <PageHero
         badge="Safety & Discretion Benchmark"
         title="Built on Uncompromising Trust & Ethical Integrity"
-        subtitle="Discover how Amora Luxe sets the global benchmark for client anonymity, companion safety, triple-layer verification, and round-the-clock support."
+        subtitle="Discover how RentasBuddy sets the global benchmark for client anonymity, companion safety, triple-layer verification, and round-the-clock support."
         breadcrumb="Why Us"
         bgImageUrl="https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&q=80&w=2000"
       >
@@ -131,7 +131,7 @@ export default function WhyUsPage() {
             <FadeIn>
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-pink-100/80 border border-pink-200 text-pink-600 text-xs font-bold uppercase tracking-wider mb-4">
                 <Sparkles className="w-3.5 h-3.5" />
-                The Amora Luxe Guarantee
+                The RentasBuddy Guarantee
               </div>
               <h2 className="text-3xl sm:text-5xl font-extrabold text-purple-950 tracking-tight mb-4">
                 Six Core Pillars of Client Peace of Mind
@@ -221,7 +221,7 @@ export default function WhyUsPage() {
                 Comparison Standard
               </div>
               <h2 className="text-3xl sm:text-5xl font-extrabold text-purple-950 tracking-tight mb-4">
-                Amora Luxe vs. Traditional Escort Agencies
+                RentasBuddy vs. Traditional Escort Agencies
               </h2>
               <p className="text-purple-900/70 text-base sm:text-lg">
                 See why discerning clients choose our curated, verified membership model.
@@ -239,7 +239,7 @@ export default function WhyUsPage() {
                         Service Benchmark
                       </th>
                       <th className="p-6 text-sm font-extrabold text-pink-600 uppercase tracking-wider bg-pink-100/40">
-                        ✨ Amora Luxe Standard
+                        ✨ RentasBuddy Standard
                       </th>
                       <th className="p-6 text-sm font-extrabold text-purple-900/50 uppercase tracking-wider">
                         Unverified Agencies
@@ -252,7 +252,7 @@ export default function WhyUsPage() {
                         <td className="p-6 text-sm font-bold text-purple-950">{row.feature}</td>
                         <td className="p-6 text-sm font-bold text-pink-700 bg-pink-50/30 flex items-center gap-2">
                           <Check className="w-5 h-5 text-pink-600 shrink-0" />
-                          <span>{row.amora}</span>
+                          <span>{row.rentasBuddy}</span>
                         </td>
                         <td className="p-6 text-sm text-purple-900/60">
                           <div className="flex items-center gap-2">

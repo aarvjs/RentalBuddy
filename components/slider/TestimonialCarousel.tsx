@@ -31,7 +31,7 @@ export function TestimonialCarousel() {
               Words from Discerning Clients
             </h2>
             <p className="text-purple-900/70 text-base sm:text-lg">
-              Read how Amora Luxe has elevated private events, international journeys, and personal companionship.
+              Read how RentasBuddy has elevated private events, international journeys, and personal companionship.
             </p>
           </FadeIn>
         </div>

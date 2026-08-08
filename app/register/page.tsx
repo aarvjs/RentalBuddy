@@ -121,7 +121,7 @@ function RegisterForm() {
           <CheckCircle2 className="w-6 h-6 shrink-0 text-white" />
           <div>
             <span className="block font-black text-base">🎉 Registration Successful!</span>
-            <span className="text-xs text-pink-100 font-medium">Welcome to Amora Luxe Privé. Redirecting to your dashboard...</span>
+            <span className="text-xs text-pink-100 font-medium">Welcome to RentasBuddy Privé. Redirecting to your dashboard...</span>
           </div>
         </div>
       )}
@@ -359,7 +359,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="relative z-10 my-10 space-y-4">
-            <h3 className="text-2xl font-bold font-serif">Join Amora Privé</h3>
+            <h3 className="text-2xl font-bold font-serif">Join RentasBuddy Privé</h3>
             <ul className="space-y-3 text-xs text-pink-100">
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-pink-400 shrink-0" />

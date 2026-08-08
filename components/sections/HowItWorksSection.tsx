@@ -42,7 +42,7 @@ export function HowItWorksSection() {
               Seamless Flow
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-purple-950 tracking-tight mb-3">
-              How Amora Works
+              How RentasBuddy Works
             </h2>
             <p className="text-purple-900/70 text-sm sm:text-base">
               Four simple, confidential steps to arrange your companion experience.

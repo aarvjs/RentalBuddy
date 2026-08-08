@@ -1,9 +1,9 @@
 export const SITE_CONFIG = {
-  name: "Amora Luxe",
+  name: "RentasBuddy",
   tagline: "Premium Social Companionship & Lifestyle Experiences",
   description:
-    "Amora Luxe connects individuals with verified social companions for dining, travel, shopping, event escorts, elder care, and meaningful everyday experiences.",
-  contactEmail: "concierge@amoraluxe.com",
+    "RentasBuddy connects individuals with verified social companions for dining, travel, shopping, event escorts, elder care, and meaningful everyday experiences.",
+  contactEmail: "concierge@rentasbuddy.com",
   contactPhone: "+1 (800) 884-9020",
   address: "740 Fifth Avenue, Penthouse 42, New York, NY 10019",
 };
@@ -175,7 +175,7 @@ export const PRICING_TIERS = [
   },
   {
     id: "prestige",
-    name: "Amora Lifestyle",
+    name: "RentasBuddy Lifestyle",
     tagline: "For Travel & High-Profile Events",
     priceMonthly: 1290,
     priceAnnual: 990,

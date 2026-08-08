@@ -20,7 +20,7 @@ export function WhyChooseUsSection() {
               Uncompromising Quality
             </div>
             <h2 className="text-3xl sm:text-5xl font-extrabold text-purple-950 tracking-tight mb-4">
-              Why Discerning Clients Choose Amora
+              Why Discerning Clients Choose RentasBuddy
             </h2>
             <p className="text-purple-900/70 text-base sm:text-lg">
               Built on absolute discretion, rigorous background verification, and bespoke concierge management.
