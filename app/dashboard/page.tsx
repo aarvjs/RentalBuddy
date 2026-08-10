@@ -14,14 +14,23 @@ import {
   ChevronRight,
   Lock,
   Loader2,
-  Clock3,
   Activity,
   User as UserIcon,
+  Briefcase,
+  AlertCircle,
+  X,
+  Users,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/buttons/Buttons";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations/Animations";
 import { getUserBookings, BookingData } from "@/lib/firebase";
+import {
+  getMasterServices,
+  getAvailableProviderCountForService,
+  DEFAULT_MASTER_SERVICES,
+  MasterServiceItem,
+} from "@/lib/service-provider/provider-services";
 
 export default function DashboardPage() {
   const { user, profile, loading } = useAuth();
@@ -31,11 +40,23 @@ export default function DashboardPage() {
   const [bookings, setBookings] = useState<BookingData[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
 
+  // Master Services state & availability count
+  const [masterServices, setMasterServices] = useState<MasterServiceItem[]>([]);
+  const [availabilityCounts, setAvailabilityCounts] = useState<Record<string, number>>({});
+  const [loadingServices, setLoadingServices] = useState(true);
+
+  // Notice Modal for unavailable services
+  const [unavailableModalService, setUnavailableModalService] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login?redirect=/dashboard");
+    if (!loading) {
+      if (!user) {
+        router.push("/login?redirect=/dashboard");
+      } else if (profile?.userType === "provider") {
+        router.push("/service-provider/dashboard");
+      }
     }
-  }, [user, loading, router]);
+  }, [user, profile, loading, router]);
 
   useEffect(() => {
     async function loadData() {
@@ -50,6 +71,63 @@ export default function DashboardPage() {
       loadData();
     }
   }, [user]);
+
+  // Load Real Master Services dynamically from Firestore with static fallback
+  useEffect(() => {
+    async function loadServicesData() {
+      setLoadingServices(true);
+      try {
+        let servicesList: MasterServiceItem[] = [];
+        try {
+          if (typeof getMasterServices === "function") {
+            servicesList = await getMasterServices();
+          }
+        } catch (e) {
+          console.warn("Could not fetch master services from Firestore:", e);
+        }
+
+        if (!servicesList || servicesList.length === 0) {
+          servicesList = DEFAULT_MASTER_SERVICES;
+        }
+
+        setMasterServices(servicesList);
+
+        // Fetch provider availability counts for each service
+        const counts: Record<string, number> = {};
+        await Promise.all(
+          servicesList.map(async (s) => {
+            try {
+              if (typeof getAvailableProviderCountForService === "function") {
+                const count = await getAvailableProviderCountForService(s.id);
+                counts[s.id] = count;
+              } else {
+                counts[s.id] = 0;
+              }
+            } catch (err) {
+              counts[s.id] = 0;
+            }
+          })
+        );
+        setAvailabilityCounts(counts);
+      } catch (err) {
+        console.error("Failed to load real services on dashboard:", err);
+        setMasterServices(DEFAULT_MASTER_SERVICES);
+      } finally {
+        setLoadingServices(false);
+      }
+    }
+
+    loadServicesData();
+  }, []);
+
+  const handleBookClick = (service: MasterServiceItem) => {
+    const availableCount = availabilityCounts[service.id] || 0;
+    if (availableCount === 0) {
+      setUnavailableModalService(service.serviceName);
+    } else {
+      router.push(`/pricing?service=${service.id}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -94,11 +172,9 @@ export default function DashboardPage() {
 
   const avatarLetter = firstName.charAt(0).toUpperCase();
 
-  // Time of day greeting
   const hour = new Date().getHours();
   const timeGreeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-  // Filter bookings based on activeTab
   const filteredBookings = bookings.filter((b) => b.status === activeTab);
 
   const upcomingCount = bookings.filter((b) => b.status === "upcoming").length;
@@ -106,6 +182,44 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen pt-32 pb-24 bg-gradient-to-b from-pink-100/50 via-purple-50/30 to-[#FFF9FA]">
+      {/* Modal for unavailable service booking attempt */}
+      {unavailableModalService && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-purple-950/40 backdrop-blur-sm">
+          <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-white border border-pink-200 shadow-2xl space-y-4 relative">
+            <button
+              onClick={() => setUnavailableModalService(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-pink-50 text-purple-950 flex items-center justify-center hover:bg-pink-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-extrabold text-purple-950">
+                Partner Unavailable
+              </h3>
+              <p className="text-sm text-purple-900/70">
+                No Partner is currently available for{" "}
+                <span className="font-extrabold text-pink-600">{unavailableModalService}</span>.
+              </p>
+              <p className="text-xs text-purple-900/60">
+                Please check back soon or explore other available services on RentasBuddy.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setUnavailableModalService(null)}
+              className="w-full py-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-xs shadow-md shadow-pink-500/20"
+            >
+              Understand & Explore Other Services
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-6 sm:px-8 space-y-10">
         {/* Dashboard Header */}
         <FadeIn delay={0.1}>
@@ -118,11 +232,11 @@ export default function DashboardPage() {
                 {timeGreeting}, {firstName}
               </h1>
               <p className="text-purple-900/70 text-sm sm:text-base font-medium">
-                Manage your bookings and your KoPartner experience.
+                Browse real platform services and manage your partner bookings.
               </p>
             </div>
 
-            {/* Profile Avatar on Right */}
+            {/* Profile Avatar */}
             <Link
               href="/settings"
               className="flex items-center gap-3 p-2 pr-5 rounded-full bg-pink-50/60 border border-pink-200/80 hover:border-pink-300 transition-all shrink-0 group"
@@ -146,7 +260,7 @@ export default function DashboardPage() {
           </div>
         </FadeIn>
 
-        {/* Quick Overview (4 Compact Elegant Summary Cards) */}
+        {/* Quick Overview Summary Cards */}
         <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StaggerItem>
             <div className="p-6 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-200/80 shadow-md flex items-center justify-between">
@@ -202,35 +316,136 @@ export default function DashboardPage() {
             <div className="p-6 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-200/80 shadow-md flex items-center justify-between">
               <div>
                 <span className="text-xs font-bold text-purple-900/60 uppercase tracking-wider block mb-1">
-                  Saved Partners
+                  Available Services
                 </span>
                 <span className="text-2xl sm:text-3xl font-black text-purple-950">
-                  0
+                  {masterServices.length}
                 </span>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-pink-100 text-pink-500 flex items-center justify-center shrink-0">
-                <Heart className="w-6 h-6" />
+                <Briefcase className="w-6 h-6" />
               </div>
             </div>
           </StaggerItem>
         </StaggerContainer>
 
-        {/* Main Content Grid: Services / Bookings on Left, Recent Activity on Right */}
+        {/* SECTION: REAL SERVICES AVAILABLE ON THE PLATFORM */}
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-100 border border-pink-200 text-pink-600 text-xs font-extrabold uppercase tracking-wider mb-1">
+                <Sparkles className="w-3.5 h-3.5" /> Platform Services
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-purple-950">
+                Explore Available Services
+              </h2>
+              <p className="text-xs sm:text-sm text-purple-900/70">
+                Real services created by Admin and offered by verified platform Partners.
+              </p>
+            </div>
+          </div>
+
+          {loadingServices ? (
+            <div className="p-12 rounded-3xl bg-white/80 border border-pink-200 text-center">
+              <Loader2 className="w-6 h-6 animate-spin text-pink-500 mx-auto mb-2" />
+              <span className="text-xs font-bold text-purple-950">Loading platform services...</span>
+            </div>
+          ) : masterServices.length > 0 ? (
+            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {masterServices.map((service) => {
+                const count = availabilityCounts[service.id] || 0;
+                const isAvailable = count > 0;
+
+                return (
+                  <StaggerItem key={service.id}>
+                    <div className="p-5 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-200/80 shadow-md hover:border-pink-300 transition-all flex flex-col justify-between h-full space-y-4">
+                      <div className="space-y-3">
+                        {service.imageUrl && (
+                          <div className="relative h-40 w-full rounded-2xl overflow-hidden bg-purple-50">
+                            <img
+                              src={service.imageUrl}
+                              alt={service.serviceName}
+                              className="w-full h-full object-cover"
+                            />
+                            <span className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-white/90 backdrop-blur-md text-[10px] font-extrabold text-purple-950 border border-pink-200 shadow-sm">
+                              {service.category}
+                            </span>
+                          </div>
+                        )}
+
+                        <div>
+                          <h3 className="font-extrabold text-purple-950 text-lg">
+                            {service.serviceName}
+                          </h3>
+                          <p className="text-xs text-purple-900/70 line-clamp-2 mt-1 leading-relaxed">
+                            {service.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-pink-100 space-y-3">
+                        <div className="flex items-center justify-between text-xs">
+                          {service.price ? (
+                            <span className="font-extrabold text-purple-950">
+                              ${service.price} <span className="text-[10px] font-semibold text-purple-900/60">/ {service.priceType || "hr"}</span>
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-purple-900/60">Custom Rate</span>
+                          )}
+
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                              isAvailable
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            <Users className="w-3 h-3" />
+                            {isAvailable ? `${count} Available` : "No Partner Available"}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleBookClick(service)}
+                          className={`w-full py-2.5 rounded-2xl font-extrabold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 ${
+                            isAvailable
+                              ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-pink-500/20 hover:opacity-95"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                          }`}
+                        >
+                          {isAvailable ? "Book Now" : "Check Availability"}
+                        </button>
+                      </div>
+                    </div>
+                  </StaggerItem>
+                );
+              })}
+            </StaggerContainer>
+          ) : (
+            <div className="p-10 rounded-3xl bg-white/90 border border-pink-200 text-center">
+              <Briefcase className="w-8 h-8 text-pink-400 mx-auto mb-2" />
+              <p className="font-extrabold text-purple-950 text-sm">No services listed</p>
+              <p className="text-xs text-purple-900/60">Check back soon for upcoming companion services.</p>
+            </div>
+          )}
+        </div>
+
+        {/* SECTION: MY BOOKINGS (WITH CLEAN EMPTY STATE) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: My Services / Bookings */}
           <div className="lg:col-span-8 space-y-6">
             <FadeIn delay={0.2}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-extrabold text-purple-950">
-                    Your Services
+                    Your Bookings
                   </h2>
                   <p className="text-xs sm:text-sm text-purple-900/70">
-                    Track your current, completed, and pending KoPartner itineraries.
+                    Track your scheduled, completed, and pending itineraries.
                   </p>
                 </div>
 
-                {/* Tabs */}
+                {/* Booking Status Tabs */}
                 <div className="flex gap-1.5 p-1 rounded-full bg-white/80 border border-pink-200 shadow-sm">
                   <button
                     onClick={() => setActiveTab("upcoming")}
@@ -307,21 +522,18 @@ export default function DashboardPage() {
                 ))}
               </StaggerContainer>
             ) : (
-              /* Beautiful Empty State */
+              /* CLEAN EMPTY STATE EXACTLY AS SPECIFIED IN TASK 2 */
               <FadeIn delay={0.3}>
                 <div className="p-10 sm:p-12 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-200/80 shadow-md text-center space-y-4">
                   <div className="w-16 h-16 rounded-2xl bg-pink-100 text-pink-600 flex items-center justify-center mx-auto shadow-sm">
                     <Sparkles className="w-8 h-8" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-xl font-extrabold text-purple-950">No services booked yet</h3>
+                    <h3 className="text-xl font-extrabold text-purple-950">No bookings yet</h3>
                     <p className="text-xs sm:text-sm text-purple-900/70 max-w-sm mx-auto">
-                      Explore our services and find the right KoPartner for your next experience.
+                      Explore our services and find the right Partner for you.
                     </p>
                   </div>
-                  <Button href="/pricing" variant="primary" size="sm" icon>
-                    Explore Services
-                  </Button>
                 </div>
               </FadeIn>
             )}
@@ -345,8 +557,8 @@ export default function DashboardPage() {
                       <UserIcon className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="font-extrabold text-purple-950">Account Profile Verified</p>
-                      <p className="text-purple-900/60 text-[11px]">Swiss encryption protection active</p>
+                      <p className="font-extrabold text-purple-950">Account Profile Active</p>
+                      <p className="text-purple-900/60 text-[11px]">RentasBuddy protection active</p>
                       <span className="text-[10px] text-pink-500 font-semibold block mt-0.5">Just now</span>
                     </div>
                   </div>
@@ -357,7 +569,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="font-extrabold text-purple-950">Member Registration Complete</p>
-                      <p className="text-purple-900/60 text-[11px]">Welcome to RentasBuddy Privé</p>
+                      <p className="text-purple-900/60 text-[11px]">Welcome to RentasBuddy</p>
                       <span className="text-[10px] text-pink-500 font-semibold block mt-0.5">Today</span>
                     </div>
                   </div>

@@ -1,33 +1,65 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, ShieldCheck, Mail, Lock, User, Phone, MapPin, CheckCircle2, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Sparkles,
+  ShieldCheck,
+  Mail,
+  Lock,
+  User,
+  Phone,
+  MapPin,
+  CheckCircle2,
+  ArrowRight,
+  AlertCircle,
+  Loader2,
+  Briefcase,
+  UserCheck,
+} from "lucide-react";
 import { Button } from "@/components/buttons/Buttons";
 import { SITE_CONFIG } from "@/lib/constants";
-import { registerUser } from "@/lib/firebase";
+import { registerCustomerUser, registerProviderAccount } from "@/lib/firebase";
 import { CelebrationParticles } from "@/components/animations/Confetti";
 
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect") || "/dashboard";
+  const redirectUrl = searchParams.get("redirect");
+  const typeParam = searchParams.get("type");
 
+  // Account Type selector state: "customer" | "provider"
+  const [accountType, setAccountType] = useState<"customer" | "provider">(
+    typeParam === "provider" ? "provider" : "customer"
+  );
+
+  // Common Fields
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [city, setCity] = useState("");
-  const [gender, setGender] = useState("");
-  const [preference, setPreference] = useState<"Find a KoPartner" | "Become a KoPartner" | "Both">("Find a KoPartner");
-  const [mobileNumber, setMobileNumber] = useState("");
   const [pincode, setPincode] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
+
+  // Customer Specific Fields
+  const [gender, setGender] = useState("");
+  const [preference, setPreference] = useState<"Find a Partner" | "Become a Partner" | "Both">("Find a Partner");
+
+  // Provider Specific Fields
+  const [state, setState] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    if (typeParam === "provider") {
+      setAccountType("provider");
+    }
+  }, [typeParam]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,29 +86,63 @@ function RegisterForm() {
       setErrorMessage("City is required.");
       return;
     }
-    if (!gender) {
-      setErrorMessage("Please select your gender.");
-      return;
+
+    if (accountType === "customer") {
+      if (!gender) {
+        setErrorMessage("Please select your gender.");
+        return;
+      }
+    } else {
+      // Provider validation
+      if (!mobileNumber.trim()) {
+        setErrorMessage("Mobile Number is required for Service Providers.");
+        return;
+      }
+      if (!state.trim()) {
+        setErrorMessage("State is required for Service Providers.");
+        return;
+      }
+      if (!pincode.trim()) {
+        setErrorMessage("Pincode is required for Service Providers.");
+        return;
+      }
     }
 
     try {
       setLoading(true);
-      await registerUser({
-        fullName: fullName.trim(),
-        email: email.trim(),
-        password,
-        city: city.trim(),
-        gender,
-        preference,
-        mobileNumber: mobileNumber.trim(),
-        pincode: pincode.trim(),
-      });
 
-      // Quick 2-Second Success Burst & Redirect
-      setIsSuccess(true);
-      setTimeout(() => {
-        router.push(redirectUrl);
-      }, 2000);
+      if (accountType === "customer") {
+        await registerCustomerUser({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          password,
+          city: city.trim(),
+          gender,
+          preference,
+          mobileNumber: mobileNumber.trim(),
+          pincode: pincode.trim(),
+        });
+
+        setIsSuccess(true);
+        setTimeout(() => {
+          router.push(redirectUrl || "/dashboard");
+        }, 1500);
+      } else {
+        await registerProviderAccount({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          password,
+          mobileNumber: mobileNumber.trim(),
+          city: city.trim(),
+          state: state.trim(),
+          pincode: pincode.trim(),
+        });
+
+        setIsSuccess(true);
+        setTimeout(() => {
+          router.push("/service-provider/dashboard");
+        }, 1500);
+      }
     } catch (err: any) {
       const code = err?.code || "";
       if (code === "auth/email-already-in-use") {
@@ -95,16 +161,51 @@ function RegisterForm() {
 
   return (
     <div className="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-center relative">
-      {/* Quick 2-Second Falling Flowers Celebration */}
       {isSuccess && <CelebrationParticles />}
 
       <div className="mb-6">
-        <h2 className="text-3xl font-extrabold text-purple-950 mb-2">
+        <h2 className="text-3xl font-extrabold text-purple-950 mb-1">
           Create Account
         </h2>
         <p className="text-purple-900/70 text-sm">
-          Enter your details below to register your account.
+          Join RentasBuddy as a Customer or Service Provider.
         </p>
+      </div>
+
+      {/* ================================================== */}
+      {/* SEGMENTED CONTROL SELECTOR: CUSTOMER vs PROVIDER   */}
+      {/* ================================================== */}
+      <div className="mb-6 p-1.5 rounded-2xl bg-pink-100/70 border border-pink-200 backdrop-blur-md">
+        <label className="block text-[10px] uppercase tracking-wider font-extrabold text-pink-700 mb-1.5 px-3 pt-1">
+          Join RentasBuddy as
+        </label>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            onClick={() => setAccountType("customer")}
+            className={`py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+              accountType === "customer"
+                ? "bg-white text-purple-950 shadow-md shadow-pink-500/10 border border-pink-200/80"
+                : "text-purple-900/70 hover:text-purple-950 hover:bg-white/40"
+            }`}
+          >
+            <UserCheck className="w-4 h-4 text-pink-500" />
+            <span>Customer</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAccountType("provider")}
+            className={`py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+              accountType === "provider"
+                ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md shadow-pink-500/20"
+                : "text-purple-900/70 hover:text-purple-950 hover:bg-white/40"
+            }`}
+          >
+            <Briefcase className="w-4 h-4 text-pink-200" />
+            <span>Service Provider</span>
+          </button>
+        </div>
       </div>
 
       {/* Clean UI Error Banner */}
@@ -115,13 +216,17 @@ function RegisterForm() {
         </div>
       )}
 
-      {/* 2-Second Success Pop-Up Message */}
+      {/* Success Banner */}
       {isSuccess && (
         <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 text-white text-sm font-bold flex items-center gap-3 shadow-xl animate-bounce">
           <CheckCircle2 className="w-6 h-6 shrink-0 text-white" />
           <div>
-            <span className="block font-black text-base">🎉 Registration Successful!</span>
-            <span className="text-xs text-pink-100 font-medium">Welcome to RentasBuddy Privé. Redirecting to your dashboard...</span>
+            <span className="block font-black text-base">🎉 Account Created Successfully!</span>
+            <span className="text-xs text-pink-100 font-medium">
+              {accountType === "provider"
+                ? "Welcome to RentasBuddy Provider Portal. Redirecting to provider dashboard..."
+                : "Welcome to RentasBuddy. Redirecting to your dashboard..."}
+            </span>
           </div>
         </div>
       )}
@@ -142,7 +247,7 @@ function RegisterForm() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
+                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
               />
             </div>
           </div>
@@ -160,13 +265,13 @@ function RegisterForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="user@example.com"
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
+                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
               />
             </div>
           </div>
         </div>
 
-        {/* Required: Password & Confirm Password */}
+        {/* Password & Confirm Password */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
@@ -181,7 +286,7 @@ function RegisterForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Min 6 characters"
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
+                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
               />
             </div>
           </div>
@@ -199,102 +304,174 @@ function RegisterForm() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter password"
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
+                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
               />
             </div>
           </div>
         </div>
 
-        {/* Required: City & Gender */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
-              City *
-            </label>
-            <div className="relative">
-              <MapPin className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                required
+        {/* CUSTOMER FORM FIELDS */}
+        {accountType === "customer" && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
+                  City *
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    disabled={isSuccess}
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="New York, London, Paris..."
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
+                  Gender *
+                </label>
+                <select
+                  required
+                  disabled={isSuccess}
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+                >
+                  <option value="" disabled>Select Gender</option>
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Non-binary">Non-binary</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
+                I want to *
+              </label>
+              <select
                 disabled={isSuccess}
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="New York, London, Paris..."
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
-              />
+                value={preference}
+                onChange={(e) => setPreference(e.target.value as any)}
+                className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-semibold"
+              >
+                <option value="Find a Partner">Find a Partner</option>
+                <option value="Become a Partner">Become a Partner</option>
+                <option value="Both">Both</option>
+              </select>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
-              Gender *
-            </label>
-            <select
-              required
-              disabled={isSuccess}
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
-            >
-              <option value="" disabled>Select Gender</option>
-              <option value="Female">Female</option>
-              <option value="Male">Male</option>
-              <option value="Non-binary">Non-binary</option>
-              <option value="Prefer not to say">Prefer not to say</option>
-            </select>
-          </div>
-        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-purple-900/70 mb-1.5">
+                  Mobile Number <span className="text-[10px] text-purple-900/50">(Optional)</span>
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    disabled={isSuccess}
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value)}
+                    placeholder="+1 (555) 000-0000"
+                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+                  />
+                </div>
+              </div>
 
-        {/* Required: I want to * */}
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
-            I want to *
-          </label>
-          <select
-            disabled={isSuccess}
-            value={preference}
-            onChange={(e) => setPreference(e.target.value as any)}
-            className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-semibold"
-          >
-            <option value="Find a KoPartner">Find a KoPartner</option>
-            <option value="Become a KoPartner">Become a KoPartner</option>
-            <option value="Both">Both</option>
-          </select>
-        </div>
-
-        {/* Optional: Mobile Number & Pincode */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-          <div>
-            <label className="block text-xs font-semibold text-purple-900/70 mb-1.5">
-              Mobile Number <span className="text-[10px] text-purple-900/50">(Optional)</span>
-            </label>
-            <div className="relative">
-              <Phone className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2" />
-              <input
-                type="tel"
-                disabled={isSuccess}
-                value={mobileNumber}
-                onChange={(e) => setMobileNumber(e.target.value)}
-                placeholder="+1 (555) 000-0000"
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-purple-900/70 mb-1.5">
+                  Pincode / Postal Code <span className="text-[10px] text-purple-900/50">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  disabled={isSuccess}
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  placeholder="10001"
+                  className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+                />
+              </div>
             </div>
-          </div>
+          </>
+        )}
 
-          <div>
-            <label className="block text-xs font-semibold text-purple-900/70 mb-1.5">
-              Pincode / Postal Code <span className="text-[10px] text-purple-900/50">(Optional)</span>
-            </label>
-            <input
-              type="text"
-              disabled={isSuccess}
-              value={pincode}
-              onChange={(e) => setPincode(e.target.value)}
-              placeholder="10001"
-              className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400"
-            />
-          </div>
-        </div>
+        {/* SERVICE PROVIDER FORM FIELDS */}
+        {accountType === "provider" && (
+          <>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
+                Mobile Number *
+              </label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  type="tel"
+                  required
+                  disabled={isSuccess}
+                  value={mobileNumber}
+                  onChange={(e) => setMobileNumber(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
+                  City *
+                </label>
+                <input
+                  type="text"
+                  required
+                  disabled={isSuccess}
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="City"
+                  className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
+                  State *
+                </label>
+                <input
+                  type="text"
+                  required
+                  disabled={isSuccess}
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="State"
+                  className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
+                  Pincode *
+                </label>
+                <input
+                  type="text"
+                  required
+                  disabled={isSuccess}
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  placeholder="6-digit Pincode"
+                  className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+                />
+              </div>
+            </div>
+          </>
+        )}
 
         <Button
           type="submit"
@@ -313,7 +490,8 @@ function RegisterForm() {
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">
-              Create Account <ArrowRight className="w-4 h-4" />
+              {accountType === "provider" ? "Create Service Provider Account" : "Create Customer Account"}{" "}
+              <ArrowRight className="w-4 h-4" />
             </span>
           )}
         </Button>
@@ -321,7 +499,10 @@ function RegisterForm() {
 
       <div className="mt-8 text-center text-xs text-purple-900/70">
         Already have an account?{" "}
-        <Link href={`/login${redirectUrl !== "/dashboard" ? `?redirect=${encodeURIComponent(redirectUrl)}` : ""}`} className="font-bold text-pink-600 hover:underline">
+        <Link
+          href={`/login${redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ""}`}
+          className="font-bold text-pink-600 hover:underline"
+        >
           Sign In
         </Link>
       </div>
@@ -333,7 +514,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen pt-24 pb-12 flex items-center justify-center bg-gradient-to-b from-pink-100/60 via-purple-50/40 to-white px-4 sm:px-8">
       <div className="max-w-5xl w-full rounded-[2.5rem] bg-white/90 backdrop-blur-2xl border border-pink-200 shadow-2xl shadow-purple-500/10 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
-        {/* Left Side: Visual Showcase */}
+        {/* Left Side Visual Showcase */}
         <div className="lg:col-span-5 relative p-10 bg-gradient-to-br from-pink-950 via-purple-950 to-purple-900 text-white flex flex-col justify-between overflow-hidden">
           <div className="absolute inset-0 opacity-35">
             <Image
@@ -354,7 +535,7 @@ export default function RegisterPage() {
             </Link>
 
             <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider text-pink-200">
-              Create Your Account
+              Registration Portal
             </span>
           </div>
 
@@ -363,11 +544,11 @@ export default function RegisterPage() {
             <ul className="space-y-3 text-xs text-pink-100">
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-pink-400 shrink-0" />
-                <span>Encrypted access to 1,250+ verified companions</span>
+                <span>Encrypted access to 1,250+ verified companions & services</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-pink-400 shrink-0" />
-                <span>24/7 senior concierge officer assigned to your account</span>
+                <span>Verified identity & confidential profile management</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-pink-400 shrink-0" />
@@ -375,14 +556,14 @@ export default function RegisterPage() {
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-pink-400 shrink-0" />
-                <span>Pre-meeting video introductions included</span>
+                <span>Flexible companion bookings and service creation</span>
               </li>
             </ul>
           </div>
 
           <div className="relative z-10 flex items-center gap-2 text-xs text-pink-200/80">
             <ShieldCheck className="w-4 h-4 text-pink-400" />
-            <span>Strict NDA Protection Guaranteed</span>
+            <span>Strict Privacy Protection Guaranteed</span>
           </div>
         </div>
 

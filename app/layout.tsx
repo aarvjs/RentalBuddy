@@ -1,10 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 import { SITE_CONFIG } from "@/lib/constants";
 import { AuthProvider } from "@/lib/auth-context";
-import { AuthModal } from "@/components/auth/AuthModal";
+import { PublicLayoutWrapper } from "@/components/layout/PublicLayoutWrapper";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -45,10 +43,7 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased scroll-smooth">
       <body className="min-h-full flex flex-col bg-[#FFF9FA] text-[#2E1065]">
         <AuthProvider>
-          <Navbar />
-          <main className="flex-grow">{children}</main>
-          <Footer />
-          <AuthModal />
+          <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
         </AuthProvider>
       </body>
     </html>

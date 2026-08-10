@@ -6,7 +6,6 @@ import {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
-  updatePassword,
   User,
 } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
@@ -34,9 +33,11 @@ export interface UserProfileData {
   email: string;
   mobileNumber?: string;
   city: string;
+  state?: string;
   pincode?: string;
-  gender: string;
+  gender?: string;
   userType: "customer" | "provider" | "both";
+  partnerPreference?: string;
   photoURL?: string;
   createdAt: string;
   updatedAt?: string;
@@ -58,44 +59,41 @@ export interface BookingData {
   createdAt: string;
 }
 
-export interface RegisterInput {
+export interface CustomerRegisterInput {
   fullName: string;
   email: string;
   password: string;
   city: string;
   gender: string;
-  preference: "Find a KoPartner" | "Become a KoPartner" | "Both";
+  preference?: "Find a Partner" | "Become a Partner" | "Both";
   mobileNumber?: string;
   pincode?: string;
 }
 
-// Convert selection to userType
-export function mapPreferenceToUserType(
-  pref: "Find a KoPartner" | "Become a KoPartner" | "Both"
-): "customer" | "provider" | "both" {
-  if (pref === "Become a KoPartner") return "provider";
-  if (pref === "Both") return "both";
-  return "customer";
+export interface ProviderRegisterInput {
+  fullName: string;
+  email: string;
+  password: string;
+  mobileNumber: string;
+  city: string;
+  state: string;
+  pincode: string;
 }
 
-// Register user with Firebase Auth & save profile to Firestore
-export async function registerUser(input: RegisterInput): Promise<User> {
+// Register Customer user
+export async function registerCustomerUser(input: CustomerRegisterInput): Promise<User> {
   const { email, password, fullName, city, gender, preference, mobileNumber, pincode } = input;
   const cleanEmail = email.trim().toLowerCase();
-  
+
   const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
   const user = userCredential.user;
 
-  // Update Auth Profile Display Name
   try {
     await updateProfile(user, { displayName: fullName.trim() });
   } catch (e) {
     console.warn("Could not update auth display name:", e);
   }
 
-  const userType = mapPreferenceToUserType(preference);
-
-  // Store in Firestore users collection with Document ID = uid
   try {
     const profileData: UserProfileData = {
       uid: user.uid,
@@ -104,17 +102,80 @@ export async function registerUser(input: RegisterInput): Promise<User> {
       mobileNumber: mobileNumber?.trim() || "",
       city: city.trim(),
       pincode: pincode?.trim() || "",
-      gender,
-      userType,
+      gender: gender || "",
+      userType: "customer",
+      partnerPreference: preference || "Find a Partner",
       createdAt: new Date().toISOString(),
     };
 
     await setDoc(doc(db, "users", user.uid), profileData);
   } catch (e) {
-    console.warn("Could not save user profile to Firestore:", e);
+    console.warn("Could not save customer profile to Firestore:", e);
   }
 
   return user;
+}
+
+// Register Service Provider account
+export async function registerProviderAccount(input: ProviderRegisterInput): Promise<User> {
+  const { email, password, fullName, mobileNumber, city, state, pincode } = input;
+  const cleanEmail = email.trim().toLowerCase();
+
+  const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+  const user = userCredential.user;
+
+  try {
+    await updateProfile(user, { displayName: fullName.trim() });
+  } catch (e) {
+    console.warn("Could not update auth display name:", e);
+  }
+
+  const createdAt = new Date().toISOString();
+
+  // 1. Create users/{uid} document
+  try {
+    const userDoc: UserProfileData = {
+      uid: user.uid,
+      fullName: fullName.trim(),
+      email: cleanEmail,
+      mobileNumber: mobileNumber.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      pincode: pincode.trim(),
+      userType: "provider",
+      createdAt,
+    };
+    await setDoc(doc(db, "users", user.uid), userDoc);
+  } catch (e) {
+    console.warn("Could not save user profile document:", e);
+  }
+
+  // 2. Create providers/{uid} document
+  try {
+    const providerDoc = {
+      uid: user.uid,
+      fullName: fullName.trim(),
+      email: cleanEmail,
+      mobileNumber: mobileNumber.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      pincode: pincode.trim(),
+      role: "provider",
+      kycStatus: "pending",
+      providerStatus: "pending",
+      createdAt,
+    };
+    await setDoc(doc(db, "providers", user.uid), providerDoc);
+  } catch (e) {
+    console.warn("Could not save provider document:", e);
+  }
+
+  return user;
+}
+
+// Legacy registerUser helper (defaults to Customer)
+export async function registerUser(input: CustomerRegisterInput): Promise<User> {
+  return registerCustomerUser(input);
 }
 
 // Login with Email & Password
@@ -135,7 +196,7 @@ export async function resetPassword(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, cleanEmail);
 }
 
-// Fetch Profile from Firestore
+// Fetch Profile from Firestore users/{uid}
 export async function getUserProfile(uid: string): Promise<UserProfileData | null> {
   try {
     const docRef = doc(db, "users", uid);
@@ -152,16 +213,23 @@ export async function getUserProfile(uid: string): Promise<UserProfileData | nul
 
 // Upload Profile Image to Firebase Storage & update Firestore
 export async function uploadProfileImage(uid: string, file: File): Promise<string> {
-  const storageRef = ref(storage, `profile_images/${uid}/${file.name}`);
+  const sanitizeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+  const storageRef = ref(storage, `profile_images/${uid}/${Date.now()}_${sanitizeFilename}`);
   await uploadBytes(storageRef, file);
   const downloadURL = await getDownloadURL(storageRef);
 
-  // Update Firestore user document with photoURL
   try {
     const docRef = doc(db, "users", uid);
     await setDoc(docRef, { photoURL: downloadURL, updatedAt: new Date().toISOString() }, { merge: true });
   } catch (e) {
-    console.warn("Could not merge photoURL to Firestore:", e);
+    console.warn("Could not merge photoURL to users collection in Firestore:", e);
+  }
+
+  try {
+    const providerDocRef = doc(db, "providers", uid);
+    await setDoc(providerDocRef, { photoURL: downloadURL, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (e) {
+    console.warn("Could not merge photoURL to providers collection in Firestore:", e);
   }
 
   if (auth.currentUser) {
