@@ -35,6 +35,23 @@ export interface UserProfileData {
   city: string;
   state?: string;
   pincode?: string;
+  stateId?: string;
+  stateName?: string;
+  cityId?: string;
+  cityName?: string;
+  localityId?: string;
+  localityName?: string;
+  location?: {
+    country: string;
+    state: string;
+    city: string;
+    locality: string;
+    address: string;
+    pincode: string;
+    latitude: number;
+    longitude: number;
+    placeId?: string;
+  };
   gender?: string;
   userType: "customer" | "provider" | "both";
   partnerPreference?: string;
@@ -46,16 +63,33 @@ export interface UserProfileData {
 export interface BookingData {
   id: string;
   userId: string;
+  providerId?: string;
   serviceId?: string;
   serviceName: string;
   serviceImage: string;
   providerName: string;
   providerAvatar?: string;
+  providerPhone?: string;
   date: string;
   time: string;
   duration: string;
   amount: number;
   status: "upcoming" | "completed" | "cancelled";
+  paymentStatus?: "paid" | "pending" | "failed";
+  connectionStatus?: "waiting" | "connected" | "expired" | "blocked";
+  connectionOtp?: string;
+  connectionOtpHash?: string;
+  connectionOtpExpiresAt?: string;
+  connectionOtpAttempts?: number;
+  connectionOtpUsed?: boolean;
+  connectedAt?: string;
+  connectionVerifiedBy?: string;
+  stateId?: string;
+  stateName?: string;
+  cityId?: string;
+  cityName?: string;
+  localityId?: string;
+  localityName?: string;
   createdAt: string;
 }
 
@@ -255,6 +289,52 @@ export async function getUserBookings(uid: string): Promise<BookingData[]> {
     return bookings;
   } catch (error) {
     console.warn("Could not fetch user bookings from Firestore:", error);
+    return [];
+  }
+}
+
+// Update Customer Profile in Firestore users/{uid}
+export async function updateUserProfile(uid: string, data: Partial<UserProfileData>): Promise<void> {
+  try {
+    const docRef = doc(db, "users", uid);
+    await setDoc(docRef, { ...data, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (e) {
+    console.warn("Could not update user profile in Firestore:", e);
+  }
+}
+
+export interface CustomerPaymentRecordData {
+  id: string;
+  bookingId: string;
+  customerId: string;
+  customerName: string;
+  customerEmail?: string;
+  providerId: string;
+  providerName: string;
+  serviceId: string;
+  serviceName: string;
+  cityId?: string;
+  cityName?: string;
+  localityId?: string;
+  localityName?: string;
+  amount: number;
+  currency?: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  createdAt: string;
+}
+
+export async function getUserPayments(uid: string): Promise<CustomerPaymentRecordData[]> {
+  try {
+    const q = query(collection(db, "payments"), where("customerId", "==", uid));
+    const querySnapshot = await getDocs(q);
+    const list: CustomerPaymentRecordData[] = [];
+    querySnapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as CustomerPaymentRecordData);
+    });
+    return list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  } catch (error) {
+    console.warn("Could not fetch user payments from Firestore:", error);
     return [];
   }
 }

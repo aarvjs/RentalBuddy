@@ -2,10 +2,13 @@ import { ProviderKycStatus, ProviderAccountStatus } from "./service-provider";
 
 export interface AdminProfile {
   uid: string;
+  name?: string;
   fullName: string;
   email: string;
+  mobile?: string;
   mobileNumber: string;
   role: "admin";
+  status?: "active" | "suspended" | string;
   createdAt: string;
   updatedAt?: string;
 }

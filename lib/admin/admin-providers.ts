@@ -5,10 +5,22 @@ import { ProviderAccountStatus } from "@/types/service-provider";
 
 export async function getAllProviders(): Promise<AdminProviderListItem[]> {
   try {
+    // Fetch all admin UIDs to ensure admin accounts are excluded
+    const adminsSnapshot = await getDocs(collection(db, "admins"));
+    const adminUids = new Set<string>();
+    adminsSnapshot.forEach((docSnap) => {
+      adminUids.add(docSnap.id);
+    });
+
     const snapshot = await getDocs(collection(db, "providers"));
     const list: AdminProviderListItem[] = [];
     snapshot.forEach((docSnap) => {
-      list.push({ uid: docSnap.id, ...docSnap.data() } as AdminProviderListItem);
+      const data = docSnap.data();
+      const uid = docSnap.id;
+      if (adminUids.has(uid) || data?.role === "admin") {
+        return;
+      }
+      list.push({ uid, ...data } as AdminProviderListItem);
     });
     return list;
   } catch (error) {

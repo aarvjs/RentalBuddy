@@ -7,7 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, Mail, Lock, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/buttons/Buttons";
 import { SITE_CONFIG } from "@/lib/constants";
-import { loginUser, resetPassword, getUserProfile } from "@/lib/firebase";
+import { loginUser, resetPassword, getUserProfile, logoutUser } from "@/lib/firebase";
+import { getAdminProfile } from "@/lib/admin/admin-auth";
 
 function LoginForm() {
   const router = useRouter();
@@ -20,6 +21,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isAdminAccount, setIsAdminAccount] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
@@ -27,6 +29,7 @@ function LoginForm() {
     e.preventDefault();
     setErrorMessage("");
     setSuccessMessage("");
+    setIsAdminAccount(false);
     setResetSent(false);
 
     if (!email.trim()) {
@@ -42,7 +45,16 @@ function LoginForm() {
       setLoading(true);
       const user = await loginUser(email.trim(), password);
 
-      // Fetch user document from Firestore users/{uid}
+      // 1. Check if authenticated UID belongs to admins/{uid}
+      const adminProf = await getAdminProfile(user.uid);
+      if (adminProf && adminProf.role === "admin") {
+        await logoutUser();
+        setIsAdminAccount(true);
+        setErrorMessage("Admin accounts must use the Admin Login.");
+        return;
+      }
+
+      // 2. Fetch user document from Firestore users/{uid}
       const userProf = await getUserProfile(user.uid);
       const isProvider = userProf?.userType === "provider";
 
@@ -54,7 +66,7 @@ function LoginForm() {
         } else {
           router.push(redirectUrl || "/dashboard");
         }
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
       const code = err?.code || "";
       if (code === "auth/invalid-credential" || code === "auth/user-not-found" || code === "auth/wrong-password") {
@@ -107,9 +119,21 @@ function LoginForm() {
       </div>
 
       {errorMessage && (
-        <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2.5 shadow-sm">
-          <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />
-          <span>{errorMessage}</span>
+        <div className="mb-6 p-4.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-3 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+            <span>{errorMessage}</span>
+          </div>
+          {isAdminAccount && (
+            <div>
+              <Link
+                href="/admin/login"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-950 text-white font-extrabold text-xs shadow-md hover:bg-purple-900 transition-colors"
+              >
+                Go to Admin Login <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

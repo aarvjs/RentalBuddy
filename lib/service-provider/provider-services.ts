@@ -10,7 +10,7 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
-import { ProviderService, PriceType, ServiceStatus } from "@/types/service-provider";
+import { ProviderService, PriceType, ServiceStatus, ProviderAvailabilityConfig } from "@/types/service-provider";
 
 export interface MasterServiceItem {
   id: string;
@@ -21,7 +21,33 @@ export interface MasterServiceItem {
   priceType: string;
   imageUrl?: string;
   status: ServiceStatus;
+  location?: {
+    fullAddress: string;
+    country: string;
+    state: string;
+    city: string;
+    locality: string;
+    pincode: string;
+    latitude: number;
+    longitude: number;
+  };
+  address?: string;
+  locality?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
+  latitude?: number;
+  longitude?: number;
+  placeId?: string;
+  stateId?: string;
+  stateName?: string;
+  cityId?: string;
+  cityName?: string;
+  localityId?: string;
+  localityName?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export const DEFAULT_MASTER_SERVICES: MasterServiceItem[] = [
@@ -34,6 +60,12 @@ export const DEFAULT_MASTER_SERVICES: MasterServiceItem[] = [
     priceType: "hourly",
     imageUrl: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&q=80&w=800",
     status: "active",
+    stateId: "up",
+    stateName: "Uttar Pradesh",
+    cityId: "kanpur",
+    cityName: "Kanpur",
+    localityId: "panki",
+    localityName: "Panki",
   },
   {
     id: "shopping-buddy",
@@ -44,6 +76,12 @@ export const DEFAULT_MASTER_SERVICES: MasterServiceItem[] = [
     priceType: "hourly",
     imageUrl: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=800",
     status: "active",
+    stateId: "delhi",
+    stateName: "Delhi",
+    cityId: "delhi_city",
+    cityName: "Delhi",
+    localityId: "anand_vihar",
+    localityName: "Anand Vihar",
   },
   {
     id: "hangingout",
@@ -54,6 +92,12 @@ export const DEFAULT_MASTER_SERVICES: MasterServiceItem[] = [
     priceType: "hourly",
     imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800",
     status: "active",
+    stateId: "up",
+    stateName: "Uttar Pradesh",
+    cityId: "kanpur",
+    cityName: "Kanpur",
+    localityId: "panki",
+    localityName: "Panki",
   },
   {
     id: "elder-care",
@@ -64,6 +108,12 @@ export const DEFAULT_MASTER_SERVICES: MasterServiceItem[] = [
     priceType: "hourly",
     imageUrl: "https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&q=80&w=800",
     status: "active",
+    stateId: "up",
+    stateName: "Uttar Pradesh",
+    cityId: "lucknow",
+    cityName: "Lucknow",
+    localityId: "hazratganj",
+    localityName: "Hazratganj",
   },
   {
     id: "medical-support",
@@ -74,6 +124,12 @@ export const DEFAULT_MASTER_SERVICES: MasterServiceItem[] = [
     priceType: "hourly",
     imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=800",
     status: "active",
+    stateId: "up",
+    stateName: "Uttar Pradesh",
+    cityId: "kanpur",
+    cityName: "Kanpur",
+    localityId: "panki",
+    localityName: "Panki",
   },
   {
     id: "travel-partner",
@@ -84,6 +140,12 @@ export const DEFAULT_MASTER_SERVICES: MasterServiceItem[] = [
     priceType: "daily",
     imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800",
     status: "active",
+    stateId: "delhi",
+    stateName: "Delhi",
+    cityId: "delhi_city",
+    cityName: "Delhi",
+    localityId: "anand_vihar",
+    localityName: "Anand Vihar",
   },
   {
     id: "clubbing",
@@ -94,6 +156,12 @@ export const DEFAULT_MASTER_SERVICES: MasterServiceItem[] = [
     priceType: "hourly",
     imageUrl: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=800",
     status: "active",
+    stateId: "up",
+    stateName: "Uttar Pradesh",
+    cityId: "kanpur",
+    cityName: "Kanpur",
+    localityId: "panki",
+    localityName: "Panki",
   },
   {
     id: "domestic-help",
@@ -104,6 +172,12 @@ export const DEFAULT_MASTER_SERVICES: MasterServiceItem[] = [
     priceType: "hourly",
     imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&q=80&w=800",
     status: "active",
+    stateId: "up",
+    stateName: "Uttar Pradesh",
+    cityId: "kanpur",
+    cityName: "Kanpur",
+    localityId: "panki",
+    localityName: "Panki",
   },
 ];
 
@@ -142,6 +216,47 @@ export async function getMasterServices(): Promise<MasterServiceItem[]> {
   }
 }
 
+
+/**
+ * Fetch a Provider's full service availability configuration from Firestore `providerServices`.
+ * Returns a Record<serviceId, ProviderAvailabilityConfig>.
+ */
+export async function getProviderAvailabilityConfigs(
+  providerId: string
+): Promise<Record<string, ProviderAvailabilityConfig>> {
+  try {
+    const q = query(
+      collection(db, "providerServices"),
+      where("providerId", "==", providerId)
+    );
+    const snapshot = await getDocs(q);
+    const resultMap: Record<string, ProviderAvailabilityConfig> = {};
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.serviceId) {
+        const isAvail = data.isAvailable === true || data.available === true;
+        resultMap[data.serviceId] = {
+          providerId,
+          serviceId: data.serviceId,
+          serviceName: data.serviceName || "",
+          available: isAvail,
+          isAvailable: isAvail,
+          availableFrom: data.availableFrom || "",
+          availableTo: data.availableTo || "",
+          contactNumber: data.contactNumber || "",
+          updatedAt: data.updatedAt || "",
+        };
+      }
+    });
+
+    return resultMap;
+  } catch (error) {
+    console.warn("Could not fetch provider availability configs:", error);
+    return {};
+  }
+}
+
 /**
  * Fetch a Provider's service availability map from Firestore `providerServices`.
  * Returns a Record<serviceId, boolean>.
@@ -149,30 +264,62 @@ export async function getMasterServices(): Promise<MasterServiceItem[]> {
 export async function getProviderAvailabilityMap(
   providerId: string
 ): Promise<Record<string, boolean>> {
-  try {
-    const q = query(
-      collection(db, "providerServices"),
-      where("providerId", "==", providerId)
-    );
-    const snapshot = await getDocs(q);
-    const resultMap: Record<string, boolean> = {};
-
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      if (data.serviceId) {
-        resultMap[data.serviceId] = data.available === true;
-      }
-    });
-
-    return resultMap;
-  } catch (error) {
-    console.warn("Could not fetch provider availability map:", error);
-    return {};
-  }
+  const configs = await getProviderAvailabilityConfigs(providerId);
+  const resultMap: Record<string, boolean> = {};
+  Object.keys(configs).forEach((key) => {
+    resultMap[key] = configs[key].isAvailable;
+  });
+  return resultMap;
 }
 
 /**
- * Update availability for a specific service for a Provider in Firestore `providerServices`.
+ * Update availability config for a specific service for a Provider in Firestore `providerServices`.
+ * Document ID: providerId_serviceId
+ */
+export async function updateProviderAvailabilityConfig(
+  providerId: string,
+  serviceId: string,
+  config: {
+    isAvailable: boolean;
+    availableFrom?: string;
+    availableTo?: string;
+    contactNumber?: string;
+    serviceName?: string;
+    stateId?: string;
+    stateName?: string;
+    cityId?: string;
+    cityName?: string;
+    localityId?: string;
+    localityName?: string;
+  }
+): Promise<void> {
+  const docId = `${providerId}_${serviceId}`;
+  const docRef = doc(db, "providerServices", docId);
+
+  const payload: any = {
+    providerId,
+    serviceId,
+    available: config.isAvailable,
+    isAvailable: config.isAvailable,
+    availableFrom: config.availableFrom || "",
+    availableTo: config.availableTo || "",
+    contactNumber: config.contactNumber ? config.contactNumber.trim() : "",
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (config.serviceName) payload.serviceName = config.serviceName;
+  if (config.stateId) payload.stateId = config.stateId;
+  if (config.stateName) payload.stateName = config.stateName;
+  if (config.cityId) payload.cityId = config.cityId;
+  if (config.cityName) payload.cityName = config.cityName;
+  if (config.localityId) payload.localityId = config.localityId;
+  if (config.localityName) payload.localityName = config.localityName;
+
+  await setDoc(docRef, payload, { merge: true });
+}
+
+/**
+ * Legacy toggle update availability for a specific service for a Provider in Firestore `providerServices`.
  * Document ID: providerId_serviceId
  */
 export async function updateProviderAvailability(
@@ -180,19 +327,7 @@ export async function updateProviderAvailability(
   serviceId: string,
   available: boolean
 ): Promise<void> {
-  const docId = `${providerId}_${serviceId}`;
-  const docRef = doc(db, "providerServices", docId);
-
-  await setDoc(
-    docRef,
-    {
-      providerId,
-      serviceId,
-      available,
-      updatedAt: new Date().toISOString(),
-    },
-    { merge: true }
-  );
+  await updateProviderAvailabilityConfig(providerId, serviceId, { isAvailable: available });
 }
 
 /**

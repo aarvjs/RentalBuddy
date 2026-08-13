@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
 import { updatePassword, sendPasswordResetEmail, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { getAdminProfile, logoutAdmin } from "@/lib/admin/admin-auth";
+import { getAdminProfile, logoutAdmin, getAllAdmins } from "@/lib/admin/admin-auth";
 import { AdminProfile } from "@/types/admin";
 import { useRouter } from "next/navigation";
 import {
@@ -18,12 +18,14 @@ import {
   Loader2,
   LogOut,
   Save,
+  Shield,
 } from "lucide-react";
 
 export default function AdminSettingsPage() {
   const router = useRouter();
 
   const [admin, setAdmin] = useState<AdminProfile | null>(null);
+  const [allAdmins, setAllAdmins] = useState<AdminProfile[]>([]);
   const [fullName, setFullName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -36,24 +38,28 @@ export default function AdminSettingsPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    async function loadAdminProfile() {
+    async function loadAdminData() {
       const user = auth.currentUser;
       if (!user) return;
 
       try {
-        const data = await getAdminProfile(user.uid);
+        const [data, adminList] = await Promise.all([
+          getAdminProfile(user.uid),
+          getAllAdmins(),
+        ]);
         if (data) {
           setAdmin(data);
-          setFullName(data.fullName || "");
-          setMobileNumber(data.mobileNumber || "");
+          setFullName(data.fullName || data.name || "");
+          setMobileNumber(data.mobileNumber || data.mobile || "");
         }
+        setAllAdmins(adminList);
       } catch (err) {
         console.error("Error loading admin profile:", err);
       } finally {
         setLoading(false);
       }
     }
-    loadAdminProfile();
+    loadAdminData();
   }, []);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -70,7 +76,9 @@ export default function AdminSettingsPage() {
       await setDoc(
         doc(db, "admins", user.uid),
         {
+          name: fullName.trim(),
           fullName: fullName.trim(),
+          mobile: mobileNumber.trim(),
           mobileNumber: mobileNumber.trim(),
           updatedAt: new Date().toISOString(),
         },
@@ -271,6 +279,66 @@ export default function AdminSettingsPage() {
           </button>
         </div>
       </form>
+
+      {/* System Administrators List */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-white/90 backdrop-blur-xl border border-purple-100 shadow-md space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-purple-100">
+          <div>
+            <h3 className="text-base font-extrabold text-purple-950 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-purple-600" /> Authorized Admin Accounts
+            </h3>
+            <p className="text-xs text-purple-900/60 mt-0.5">
+              System Administrator accounts registered in admins/{`{uid}`} document collection.
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-xs font-extrabold">
+            {allAdmins.length} Admin{allAdmins.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        {allAdmins.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-medium text-purple-950">
+              <thead className="bg-purple-50/60 uppercase text-[10px] tracking-wider font-extrabold border-b border-purple-100">
+                <tr>
+                  <th className="p-3">Name</th>
+                  <th className="p-3">Email</th>
+                  <th className="p-3">Mobile</th>
+                  <th className="p-3">Role</th>
+                  <th className="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-purple-100/60">
+                {allAdmins.map((adm) => (
+                  <tr key={adm.uid} className="hover:bg-purple-50/30">
+                    <td className="p-3 font-bold">{adm.fullName || adm.name}</td>
+                    <td className="p-3 text-purple-900/70">{adm.email}</td>
+                    <td className="p-3">{adm.mobileNumber || adm.mobile || "—"}</td>
+                    <td className="p-3">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800">
+                        ADMIN
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          adm.status === "suspended"
+                            ? "bg-rose-100 text-rose-800"
+                            : "bg-emerald-100 text-emerald-800"
+                        }`}
+                      >
+                        {adm.status === "suspended" ? "Suspended" : "Active"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-purple-900/60 italic">No admin accounts found.</p>
+        )}
+      </div>
 
       {/* Logout Card */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white/90 backdrop-blur-xl border border-rose-100 shadow-md flex items-center justify-between">

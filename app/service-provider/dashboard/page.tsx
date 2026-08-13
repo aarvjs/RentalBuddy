@@ -12,7 +12,9 @@ import { DashboardStats } from "@/components/service-provider/DashboardStats";
 import { KycStatusCard } from "@/components/service-provider/KycStatusCard";
 import { BookingCard } from "@/components/service-provider/BookingCard";
 import { EmptyState } from "@/components/service-provider/EmptyState";
-import { Plus, ArrowRight, Calendar, Briefcase, Loader2 } from "lucide-react";
+import { Plus, ArrowRight, Calendar, Briefcase, Loader2, MapPin } from "lucide-react";
+
+import { VerifyConnectionModal } from "@/components/service-provider/VerifyConnectionModal";
 
 export default function ServiceProviderDashboardPage() {
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
@@ -25,6 +27,7 @@ export default function ServiceProviderDashboardPage() {
     completedServicesCount: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [verifyingBooking, setVerifyingBooking] = useState<ProviderBooking | null>(null);
 
   useEffect(() => {
     async function loadDashboardData() {
@@ -53,6 +56,12 @@ export default function ServiceProviderDashboardPage() {
     loadDashboardData();
   }, []);
 
+  const handleVerifySuccess = (bookingId: string) => {
+    setBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, connectionStatus: "connected", connectionOtpUsed: true } : b))
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -78,6 +87,15 @@ export default function ServiceProviderDashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Verify Connection Modal */}
+      {verifyingBooking && (
+        <VerifyConnectionModal
+          booking={verifyingBooking}
+          onClose={() => setVerifyingBooking(null)}
+          onSuccess={handleVerifySuccess}
+        />
+      )}
+
       {/* Top Welcome Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-white via-pink-50/60 to-purple-50/60 border border-pink-100 shadow-md">
         <div>
@@ -108,6 +126,56 @@ export default function ServiceProviderDashboardPage() {
           </Link>
         )}
       </div>
+
+      {/* Provider Operating Location Banner */}
+      {profile?.cityId || profile?.city ? (
+        <div className="p-4 sm:p-5 rounded-3xl bg-white/90 border border-pink-100 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-pink-100 border border-pink-200 flex items-center justify-center text-pink-600 shrink-0">
+              <MapPin className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs font-extrabold text-purple-950 flex items-center gap-1.5">
+                <span>Operating Location:</span>
+                <span className="text-pink-600 font-extrabold">
+                  {profile?.localityName || profile?.locality || profile?.cityName || profile?.city}, {profile?.cityName || profile?.city}
+                </span>
+              </div>
+              <p className="text-[11px] text-purple-900/60 font-medium">
+                {profile?.stateName || profile?.state || "India"} • Master services created by Admin for this area are available for enrollment.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href="/service-provider/settings"
+            className="px-4 py-2 rounded-full bg-pink-50 hover:bg-pink-100 border border-pink-200 text-purple-950 text-xs font-extrabold transition-colors shadow-xs shrink-0"
+          >
+            Change Location
+          </Link>
+        </div>
+      ) : (
+        <div className="p-6 rounded-3xl bg-amber-50/90 border border-amber-200 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <MapPin className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-base font-extrabold text-amber-950">Set your service location</h4>
+              <p className="text-xs text-amber-900/80 mt-0.5">
+                Choose your operating location to discover services available in your area before enrolling.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href="/service-provider/settings"
+            className="px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-xs shadow-md hover:opacity-95 shrink-0"
+          >
+            Set Location
+          </Link>
+        </div>
+      )}
 
       {/* KYC Status Card Banner */}
       <KycStatusCard status={profile?.kycStatus || "not_submitted"} />
@@ -140,7 +208,11 @@ export default function ServiceProviderDashboardPage() {
         {recentBookings.length > 0 ? (
           <div className="space-y-4">
             {recentBookings.map((b) => (
-              <BookingCard key={b.id} booking={b} />
+              <BookingCard
+                key={b.id}
+                booking={b}
+                onVerifyClick={(selectedBooking) => setVerifyingBooking(selectedBooking)}
+              />
             ))}
           </div>
         ) : (

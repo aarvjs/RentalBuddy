@@ -20,7 +20,8 @@ import { getAllKycSubmissions } from "@/lib/admin/admin-kyc";
 import { getAllServicesAdmin } from "@/lib/admin/admin-services";
 import { getAllBookingsAdmin } from "@/lib/admin/admin-bookings";
 import { AdminUserListItem, AdminProviderListItem } from "@/types/admin";
-import { ProviderKyc, ProviderService, ProviderBooking } from "@/types/service-provider";
+import { MasterServiceItem } from "@/lib/service-provider/provider-services";
+import { ProviderKyc, ProviderBooking } from "@/types/service-provider";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { EmptyState } from "@/components/service-provider/EmptyState";
 
@@ -28,7 +29,7 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
   const [providers, setProviders] = useState<AdminProviderListItem[]>([]);
   const [kycList, setKycList] = useState<ProviderKyc[]>([]);
-  const [services, setServices] = useState<ProviderService[]>([]);
+  const [services, setServices] = useState<MasterServiceItem[]>([]);
   const [bookings, setBookings] = useState<ProviderBooking[]>([]);
 
   const [loading, setLoading] = useState(true);

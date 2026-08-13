@@ -79,10 +79,31 @@ export default function AdminProviderDetailPage({ params }: { params: Promise<{ 
     }
   };
 
-  const handleKycReview = async (uid: string, decision: "approved" | "rejected", reason?: string) => {
+  const handleKycReview = async (
+    uid: string,
+    decision: "approved" | "rejected" | "resubmission_required",
+    reason?: string
+  ) => {
     await reviewProviderKyc(uid, decision, reason);
-    setKyc((prev) => (prev ? { ...prev, status: decision, rejectionReason: reason } : null));
-    setProvider((prev) => (prev ? { ...prev, kycStatus: decision, providerStatus: decision === "approved" ? "active" : "pending" } : null));
+    setKyc((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: decision,
+            rejectionReason: decision === "rejected" ? reason : prev.rejectionReason,
+            resubmissionReason: decision === "resubmission_required" ? reason : prev.resubmissionReason,
+          }
+        : null
+    );
+    setProvider((prev) =>
+      prev
+        ? {
+            ...prev,
+            kycStatus: decision,
+            providerStatus: decision === "approved" ? "active" : "pending",
+          }
+        : null
+    );
   };
 
   if (loading) {

@@ -119,90 +119,93 @@ export function Navbar() {
           <div className="hidden lg:flex items-center gap-3">
             {user ? (
               /* Logged In User Profile Avatar & Dropdown */
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-2.5 py-1.5 px-3 rounded-full bg-white/80 border border-pink-200 shadow-sm hover:border-pink-300 transition-all focus:outline-none"
-                >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white font-extrabold text-xs flex items-center justify-center shadow-md shadow-pink-500/20 overflow-hidden">
-                    {profile?.photoURL || user?.photoURL ? (
-                      <img src={profile?.photoURL || user?.photoURL || ""} alt={displayName} className="w-full h-full object-cover" />
-                    ) : (
-                      avatarLetter
+              <div className="flex items-center gap-3">
+
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center gap-2.5 py-1.5 px-3 rounded-full bg-white/80 border border-pink-200 shadow-sm hover:border-pink-300 transition-all focus:outline-none"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white font-extrabold text-xs flex items-center justify-center shadow-md shadow-pink-500/20 overflow-hidden">
+                      {profile?.photoURL || user?.photoURL ? (
+                        <img src={profile?.photoURL || user?.photoURL || ""} alt={displayName} className="w-full h-full object-cover" />
+                      ) : (
+                        avatarLetter
+                      )}
+                    </div>
+                    <span className="text-sm font-bold text-purple-950 max-w-[120px] truncate">
+                      {displayName}
+                    </span>
+                    <ChevronDown className={cn("w-4 h-4 text-pink-500 transition-transform", dropdownOpen ? "rotate-180" : "")} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  <AnimatePresence>
+                    {dropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute right-0 mt-3 w-56 rounded-3xl bg-white/95 backdrop-blur-2xl border border-pink-200 shadow-2xl p-2 z-50 overflow-hidden"
+                      >
+                        <div className="px-4 py-3 border-b border-pink-100 mb-1">
+                          <p className="text-xs font-extrabold text-purple-950 truncate">{displayName}</p>
+                          <p className="text-[11px] text-pink-600 font-semibold truncate">{user.email}</p>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <Link
+                            href="/dashboard"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
+                          >
+                            <LayoutDashboard className="w-4 h-4 text-pink-500" />
+                            <span>Dashboard</span>
+                          </Link>
+
+                          <Link
+                            href="/settings"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
+                          >
+                            <Settings className="w-4 h-4 text-pink-500" />
+                            <span>Account Settings</span>
+                          </Link>
+
+                          <Link
+                            href="/bookings"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
+                          >
+                            <ShoppingBag className="w-4 h-4 text-pink-500" />
+                            <span>My Bookings</span>
+                          </Link>
+
+                          <Link
+                            href="/wallet"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
+                          >
+                            <Wallet className="w-4 h-4 text-pink-500" />
+                            <span>Wallet</span>
+                          </Link>
+
+                          <button
+                            onClick={async () => {
+                              setDropdownOpen(false);
+                              await logout();
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left"
+                          >
+                            <LogOut className="w-4 h-4 text-rose-500" />
+                            <span>Logout</span>
+                          </button>
+                        </div>
+                      </motion.div>
                     )}
-                  </div>
-                  <span className="text-sm font-bold text-purple-950 max-w-[120px] truncate">
-                    {displayName}
-                  </span>
-                  <ChevronDown className={cn("w-4 h-4 text-pink-500 transition-transform", dropdownOpen ? "rotate-180" : "")} />
-                </button>
-
-                {/* Dropdown Menu */}
-                <AnimatePresence>
-                  {dropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-3 w-56 rounded-3xl bg-white/95 backdrop-blur-2xl border border-pink-200 shadow-2xl p-2 z-50 overflow-hidden"
-                    >
-                      <div className="px-4 py-3 border-b border-pink-100 mb-1">
-                        <p className="text-xs font-extrabold text-purple-950 truncate">{displayName}</p>
-                        <p className="text-[11px] text-pink-600 font-semibold truncate">{user.email}</p>
-                      </div>
-
-                      <div className="space-y-0.5">
-                        <Link
-                          href="/dashboard"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
-                        >
-                          <LayoutDashboard className="w-4 h-4 text-pink-500" />
-                          <span>Dashboard</span>
-                        </Link>
-
-                        <Link
-                          href="/settings"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
-                        >
-                          <Settings className="w-4 h-4 text-pink-500" />
-                          <span>Account Settings</span>
-                        </Link>
-
-                        <Link
-                          href="/bookings"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
-                        >
-                          <ShoppingBag className="w-4 h-4 text-pink-500" />
-                          <span>My Bookings</span>
-                        </Link>
-
-                        <Link
-                          href="/wallet"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
-                        >
-                          <Wallet className="w-4 h-4 text-pink-500" />
-                          <span>Wallet</span>
-                        </Link>
-
-                        <button
-                          onClick={async () => {
-                            setDropdownOpen(false);
-                            await logout();
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left"
-                        >
-                          <LogOut className="w-4 h-4 text-rose-500" />
-                          <span>Logout</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                  </AnimatePresence>
+                </div>
               </div>
             ) : (
               /* Before Login CTAs */

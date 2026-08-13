@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { getAllKycSubmissions, reviewProviderKyc } from "@/lib/admin/admin-kyc";
-import { ProviderKyc } from "@/types/service-provider";
+import { ProviderKyc, ProviderKycStatus } from "@/types/service-provider";
 import { AdminKycReview } from "@/components/admin/AdminKycReview";
 import { EmptyState } from "@/components/service-provider/EmptyState";
 import { ShieldCheck, Loader2 } from "lucide-react";
@@ -10,7 +10,7 @@ import { ShieldCheck, Loader2 } from "lucide-react";
 export default function AdminKycPage() {
   const [kycList, setKycList] = useState<ProviderKyc[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected">("pending");
+  const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected" | "resubmission_required">("pending");
 
   useEffect(() => {
     async function loadKycData() {
@@ -26,12 +26,24 @@ export default function AdminKycPage() {
     loadKycData();
   }, []);
 
-  const handleReview = async (uid: string, decision: "approved" | "rejected", reason?: string) => {
+  const handleReview = async (
+    uid: string,
+    decision: "approved" | "rejected" | "resubmission_required",
+    reason?: string
+  ) => {
     await reviewProviderKyc(uid, decision, reason);
     setKycList((prev) =>
-      prev.map((item) =>
-        item.uid === uid ? { ...item, status: decision, rejectionReason: reason } : item
-      )
+      prev.map((item) => {
+        if (item.uid === uid) {
+          return {
+            ...item,
+            status: decision,
+            rejectionReason: decision === "rejected" ? reason : item.rejectionReason,
+            resubmissionReason: decision === "resubmission_required" ? reason : item.resubmissionReason,
+          };
+        }
+        return item;
+      })
     );
   };
 
@@ -45,8 +57,9 @@ export default function AdminKycPage() {
 
   const filteredKyc = kycList.filter((k) => k.status === activeTab);
 
-  const TABS: { label: string; key: "pending" | "approved" | "rejected"; count: number }[] = [
+  const TABS: { label: string; key: "pending" | "approved" | "rejected" | "resubmission_required"; count: number }[] = [
     { label: "Pending Verification", key: "pending", count: kycList.filter((k) => k.status === "pending").length },
+    { label: "Resubmission Required", key: "resubmission_required", count: kycList.filter((k) => k.status === "resubmission_required").length },
     { label: "Approved KYC", key: "approved", count: kycList.filter((k) => k.status === "approved").length },
     { label: "Rejected KYC", key: "rejected", count: kycList.filter((k) => k.status === "rejected").length },
   ];
@@ -58,7 +71,7 @@ export default function AdminKycPage() {
           KYC Identity Verification Portal
         </h2>
         <p className="text-xs sm:text-sm text-purple-900/60 mt-1">
-          Carefully review submitted Aadhaar cards and profile photos to approve or reject service provider verification applications.
+          Carefully review submitted Aadhaar cards, profile photos, and mobile verification status to Approve, Reject, or Request Resubmission.
         </p>
       </div>
 
@@ -96,7 +109,7 @@ export default function AdminKycPage() {
       ) : (
         <EmptyState
           icon={ShieldCheck}
-          title={`No ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} KYC Records`}
+          title={`No ${activeTab.replace("_", " ").toUpperCase()} KYC Records`}
           description={`There are currently no provider KYC submissions in the "${activeTab}" state.`}
         />
       )}

@@ -1,4 +1,4 @@
-export type ProviderKycStatus = "pending" | "approved" | "rejected" | "not_submitted";
+export type ProviderKycStatus = "pending" | "approved" | "rejected" | "resubmission_required" | "not_submitted";
 export type ProviderAccountStatus = "pending" | "active" | "suspended";
 
 export interface ProviderProfile {
@@ -15,15 +15,41 @@ export interface ProviderProfile {
   city?: string;
   state?: string;
   pincode?: string;
+  stateId?: string;
+  stateName?: string;
+  cityId?: string;
+  cityName?: string;
+  localityId?: string;
+  localityName?: string;
+  locality?: string;
+  location?: {
+    country: string;
+    state: string;
+    city: string;
+    locality: string;
+    address: string;
+    pincode: string;
+    latitude: number;
+    longitude: number;
+    placeId?: string;
+  };
   bio?: string;
   photoURL?: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string;
 }
 
 export interface ProviderKyc {
   uid: string;
+  providerId?: string;
   profilePhoto: string;
+  profilePhotoUrl?: string;
   fullName: string;
   mobileNumber: string;
+  phoneNumber?: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string;
+  dob?: string;
   address: string;
   city: string;
   state: string;
@@ -31,9 +57,18 @@ export interface ProviderKyc {
   aadhaarNumber: string;
   aadhaarFrontUrl: string;
   aadhaarBackUrl: string;
-  status: "pending" | "approved" | "rejected";
+  addressProofUrl?: string;
+  status: ProviderKycStatus;
   submittedAt: string;
+  updatedAt?: string;
   rejectionReason?: string;
+  resubmissionReason?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  requestedAt?: string;
+  requestedBy?: string;
 }
 
 export type PriceType = "hourly" | "daily" | "fixed";
@@ -56,6 +91,18 @@ export interface ProviderService {
   updatedAt?: string;
 }
 
+export interface ProviderAvailabilityConfig {
+  providerId: string;
+  serviceId: string;
+  serviceName?: string;
+  available: boolean;
+  isAvailable: boolean;
+  availableFrom?: string;
+  availableTo?: string;
+  contactNumber?: string;
+  updatedAt?: string;
+}
+
 export type BookingStatus = "pending" | "upcoming" | "completed" | "cancelled";
 
 export interface ProviderBooking {
@@ -74,6 +121,19 @@ export interface ProviderBooking {
   duration: string;
   amount: number;
   status: BookingStatus;
+  paymentStatus?: "paid" | "pending" | "failed";
+  connectionStatus?: "waiting" | "connected" | "expired" | "blocked";
+  connectionOtpHash?: string;
+  connectionOtpExpiresAt?: string;
+  connectionOtpAttempts?: number;
+  connectionOtpUsed?: boolean;
+  connectedAt?: string;
+  connectionVerifiedBy?: string;
+  providerPhone?: string;
+  providerName?: string;
+  cityName?: string;
+  localityName?: string;
+  stateName?: string;
   createdAt: string;
   notes?: string;
 }

@@ -8,13 +8,15 @@ import {
 } from "@/lib/service-provider/provider-bookings";
 import { ProviderBooking, BookingStatus } from "@/types/service-provider";
 import { BookingCard } from "@/components/service-provider/BookingCard";
+import { VerifyConnectionModal } from "@/components/service-provider/VerifyConnectionModal";
 import { EmptyState } from "@/components/service-provider/EmptyState";
 import { Calendar, Loader2 } from "lucide-react";
 
 export default function ServiceProviderBookingsPage() {
   const [bookings, setBookings] = useState<ProviderBooking[]>([]);
-  const [activeTab, setActiveTab] = useState<BookingStatus>("pending");
+  const [activeTab, setActiveTab] = useState<BookingStatus>("upcoming");
   const [loading, setLoading] = useState(true);
+  const [verifyingBooking, setVerifyingBooking] = useState<ProviderBooking | null>(null);
 
   useEffect(() => {
     async function loadBookings() {
@@ -44,6 +46,16 @@ export default function ServiceProviderBookingsPage() {
     }
   };
 
+  const handleVerifySuccess = (bookingId: string) => {
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.id === bookingId
+          ? { ...b, connectionStatus: "connected", connectionOtpUsed: true }
+          : b
+      )
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -55,20 +67,29 @@ export default function ServiceProviderBookingsPage() {
   const filteredBookings = bookings.filter((b) => b.status === activeTab);
 
   const TABS: { label: string; key: BookingStatus; count: number }[] = [
-    { label: "Pending", key: "pending", count: bookings.filter((b) => b.status === "pending").length },
     { label: "Upcoming", key: "upcoming", count: bookings.filter((b) => b.status === "upcoming").length },
+    { label: "Pending", key: "pending", count: bookings.filter((b) => b.status === "pending").length },
     { label: "Completed", key: "completed", count: bookings.filter((b) => b.status === "completed").length },
     { label: "Cancelled", key: "cancelled", count: bookings.filter((b) => b.status === "cancelled").length },
   ];
 
   return (
     <div className="space-y-8">
+      {/* Verify Connection Modal */}
+      {verifyingBooking && (
+        <VerifyConnectionModal
+          booking={verifyingBooking}
+          onClose={() => setVerifyingBooking(null)}
+          onSuccess={handleVerifySuccess}
+        />
+      )}
+
       <div>
         <h2 className="text-2xl sm:text-3xl font-extrabold text-purple-950">
-          Bookings & Customer Requests
+          Bookings & Customer Connections
         </h2>
         <p className="text-xs sm:text-sm text-purple-900/60 mt-1">
-          Review, accept, reject, and track completed customer companion bookings.
+          Review, verify customer connection codes, accept requests, and track completed companion bookings.
         </p>
       </div>
 
@@ -100,7 +121,12 @@ export default function ServiceProviderBookingsPage() {
       {filteredBookings.length > 0 ? (
         <div className="space-y-4">
           {filteredBookings.map((b) => (
-            <BookingCard key={b.id} booking={b} onStatusChange={handleStatusChange} />
+            <BookingCard
+              key={b.id}
+              booking={b}
+              onStatusChange={handleStatusChange}
+              onVerifyClick={(selectedBooking) => setVerifyingBooking(selectedBooking)}
+            />
           ))}
         </div>
       ) : (

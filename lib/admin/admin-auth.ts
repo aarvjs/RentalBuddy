@@ -6,7 +6,7 @@ import {
   User,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { AdminProfile } from "@/types/admin";
 
@@ -17,7 +17,7 @@ export interface RegisterAdminInput {
   password: string;
 }
 
-// 1. Admin Registration: Creates Firebase Auth account and writes admins/{uid} document in Firestore
+// 1. Admin Registration: Creates Firebase Auth account and writes admins/{uid} document strictly in Firestore
 export async function registerAdminAccount(input: RegisterAdminInput): Promise<User> {
   const { fullName, mobileNumber, email, password } = input;
   const cleanEmail = email.trim().toLowerCase();
@@ -34,31 +34,19 @@ export async function registerAdminAccount(input: RegisterAdminInput): Promise<U
 
   const createdAt = new Date().toISOString();
 
-  // Save admin document in Firestore: admins/{uid} (Password is NOT stored in Firestore)
+  // Save admin document strictly in Firestore: admins/{uid} (Password is NOT stored in Firestore)
   const adminDoc: AdminProfile = {
     uid: user.uid,
+    name: fullName.trim(),
     fullName: fullName.trim(),
-    mobileNumber: mobileNumber.trim(),
     email: cleanEmail,
+    mobile: mobileNumber.trim(),
+    mobileNumber: mobileNumber.trim(),
     role: "admin",
+    status: "active",
     createdAt,
   };
   await setDoc(doc(db, "admins", user.uid), adminDoc);
-
-  // Save in users/{uid} for general system lookup
-  await setDoc(
-    doc(db, "users", user.uid),
-    {
-      uid: user.uid,
-      fullName: fullName.trim(),
-      mobileNumber: mobileNumber.trim(),
-      email: cleanEmail,
-      userType: "provider",
-      role: "admin",
-      createdAt,
-    },
-    { merge: true }
-  );
 
   return user;
 }
@@ -80,6 +68,11 @@ export async function loginAdminAccount(email: string, password: string): Promis
     throw new Error("You are not authorized to access the Admin Panel.");
   }
 
+  if (adminSnap.data()?.status === "suspended") {
+    await signOut(auth);
+    throw new Error("This Admin account has been suspended.");
+  }
+
   return user;
 }
 
@@ -89,7 +82,19 @@ export async function getAdminProfile(uid: string): Promise<AdminProfile | null>
     const docRef = doc(db, "admins", uid);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists() && docSnap.data()?.role === "admin") {
-      return docSnap.data() as AdminProfile;
+      const data = docSnap.data();
+      return {
+        uid: docSnap.id,
+        name: data.name || data.fullName || "",
+        fullName: data.fullName || data.name || "",
+        email: data.email || "",
+        mobile: data.mobile || data.mobileNumber || "",
+        mobileNumber: data.mobileNumber || data.mobile || "",
+        role: "admin",
+        status: data.status || "active",
+        createdAt: data.createdAt || "",
+        updatedAt: data.updatedAt,
+      };
     }
     return null;
   } catch (error) {
@@ -98,12 +103,41 @@ export async function getAdminProfile(uid: string): Promise<AdminProfile | null>
   }
 }
 
-// 4. Send Password Reset Email using Firebase Auth
+// 4. Fetch all Admin accounts from admins collection
+export async function getAllAdmins(): Promise<AdminProfile[]> {
+  try {
+    const snapshot = await getDocs(collection(db, "admins"));
+    const list: AdminProfile[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data?.role === "admin") {
+        list.push({
+          uid: docSnap.id,
+          name: data.name || data.fullName || "",
+          fullName: data.fullName || data.name || "",
+          email: data.email || "",
+          mobile: data.mobile || data.mobileNumber || "",
+          mobileNumber: data.mobileNumber || data.mobile || "",
+          role: "admin",
+          status: data.status || "active",
+          createdAt: data.createdAt || "",
+          updatedAt: data.updatedAt,
+        });
+      }
+    });
+    return list;
+  } catch (error) {
+    console.warn("Could not fetch admins list:", error);
+    return [];
+  }
+}
+
+// 5. Send Password Reset Email using Firebase Auth
 export async function resetAdminPassword(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email.trim().toLowerCase());
 }
 
-// 5. Logout Admin
+// 6. Logout Admin
 export async function logoutAdmin(): Promise<void> {
   await signOut(auth);
 }

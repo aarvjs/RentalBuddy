@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { updatePassword, sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { logoutProvider } from "@/lib/service-provider/provider-auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { logoutProvider, getProviderProfile } from "@/lib/service-provider/provider-auth";
+import { LocationSearchSelector, ServiceLocationData } from "@/components/location/LocationSearchSelector";
 import {
   Settings,
   Lock,
@@ -15,6 +17,8 @@ import {
   Loader2,
   ShieldCheck,
   Mail,
+  MapPin,
+  Save,
 } from "lucide-react";
 
 export default function ServiceProviderSettingsPage() {
@@ -26,12 +30,96 @@ export default function ServiceProviderSettingsPage() {
   const [smsNotifications, setSmsNotifications] = useState(true);
   const [bookingAlerts, setBookingAlerts] = useState(true);
 
+  // OpenStreetMap Location state
+  const [providerLoc, setProviderLoc] = useState<ServiceLocationData | null>(null);
+  const [savingLocation, setSavingLocation] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   const user = auth.currentUser;
+
+  useEffect(() => {
+    async function loadProviderLocation() {
+      if (!user) return;
+      try {
+        const prof = await getProviderProfile(user.uid);
+        if (prof && (prof.cityId || prof.city) && (prof.localityId || prof.locality || prof.address)) {
+          setProviderLoc({
+            fullAddress: prof.location?.address || `${prof.localityName || prof.locality || ""}, ${prof.cityName || prof.city || ""}, ${prof.stateName || prof.state || ""}`,
+            country: prof.location?.country || "India",
+            state: prof.location?.state || prof.stateName || prof.state || "",
+            city: prof.location?.city || prof.cityName || prof.city || "",
+            locality: prof.location?.locality || prof.localityName || prof.locality || "",
+            pincode: prof.location?.pincode || prof.pincode || "",
+            latitude: prof.location?.latitude || 26.4499,
+            longitude: prof.location?.longitude || 80.3319,
+            stateId: prof.stateId || "",
+            stateName: prof.stateName || prof.state || "",
+            cityId: prof.cityId || "",
+            cityName: prof.cityName || prof.city || "",
+            localityId: prof.localityId || "",
+            localityName: prof.localityName || prof.locality || "",
+          });
+        }
+      } catch (e) {
+        console.warn("Could not load provider location:", e);
+      }
+    }
+    loadProviderLocation();
+  }, [user]);
+
+  const handleSaveLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccessMessage("");
+    setErrorMessage("");
+
+    if (!user) return;
+
+    if (!providerLoc) {
+      setErrorMessage("Please search and select your operating location.");
+      return;
+    }
+
+    try {
+      setSavingLocation(true);
+
+      const locPayload = {
+        city: providerLoc.city,
+        state: providerLoc.state,
+        pincode: providerLoc.pincode,
+        stateId: providerLoc.stateId,
+        stateName: providerLoc.stateName,
+        cityId: providerLoc.cityId,
+        cityName: providerLoc.cityName,
+        localityId: providerLoc.localityId,
+        localityName: providerLoc.localityName,
+        location: {
+          country: providerLoc.country,
+          state: providerLoc.state,
+          city: providerLoc.city,
+          locality: providerLoc.locality,
+          address: providerLoc.fullAddress,
+          pincode: providerLoc.pincode,
+          latitude: providerLoc.latitude,
+          longitude: providerLoc.longitude,
+          placeId: providerLoc.placeId,
+        },
+        updatedAt: new Date().toISOString(),
+      };
+
+      await setDoc(doc(db, "providers", user.uid), locPayload, { merge: true });
+      await setDoc(doc(db, "users", user.uid), locPayload, { merge: true });
+
+      setSuccessMessage("Operating service location updated successfully! Admin services matching your location will be available for enrollment.");
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Failed to update provider location.");
+    } finally {
+      setSavingLocation(false);
+    }
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +199,35 @@ export default function ServiceProviderSettingsPage() {
           <span>{errorMessage}</span>
         </div>
       )}
+
+      {/* Service Location Setup Section */}
+      <form onSubmit={handleSaveLocation} className="p-6 sm:p-8 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-100 shadow-md space-y-6">
+        <div className="pb-3 border-b border-pink-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-extrabold text-purple-950 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-pink-500" /> Service Operating Location Setup
+            </h3>
+            <p className="text-xs text-purple-900/60 mt-0.5">
+              Search & select your operating location using OpenStreetMap. You will discover and enroll in master services created by Admin for this location.
+            </p>
+          </div>
+        </div>
+
+        <LocationSearchSelector
+          value={providerLoc || undefined}
+          onChange={(val) => setProviderLoc(val)}
+        />
+
+        <div className="flex justify-end pt-2">
+          <button
+            type="submit"
+            disabled={savingLocation || !providerLoc}
+            className="px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-xs shadow-md hover:opacity-95 disabled:opacity-50 transition-all flex items-center gap-2"
+          >
+            {savingLocation ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save Operating Location Setup
+          </button>
+        </div>
+      </form>
 
       {/* Security & Password Section */}
       <div className="p-6 sm:p-8 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-100 shadow-md space-y-6">

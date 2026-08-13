@@ -1,13 +1,14 @@
 import React from "react";
-import { Calendar, Clock, User, CheckCircle2, XCircle, AlertCircle, IndianRupee } from "lucide-react";
+import { Calendar, Clock, User, CheckCircle2, XCircle, AlertCircle, ShieldCheck, KeyRound } from "lucide-react";
 import { ProviderBooking, BookingStatus } from "@/types/service-provider";
 
 interface BookingCardProps {
   booking: ProviderBooking;
   onStatusChange?: (bookingId: string, status: BookingStatus) => void;
+  onVerifyClick?: (booking: ProviderBooking) => void;
 }
 
-export function BookingCard({ booking, onStatusChange }: BookingCardProps) {
+export function BookingCard({ booking, onStatusChange, onVerifyClick }: BookingCardProps) {
   const getStatusBadge = (status: BookingStatus) => {
     switch (status) {
       case "pending":
@@ -37,6 +38,9 @@ export function BookingCard({ booking, onStatusChange }: BookingCardProps) {
     }
   };
 
+  const isConnected = booking.connectionStatus === "connected";
+  const isWaiting = !isConnected && (booking.connectionStatus === "waiting" || booking.paymentStatus === "paid");
+
   return (
     <div className="p-6 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-100/90 shadow-lg shadow-pink-500/5 hover:border-pink-200 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div className="flex items-start gap-4">
@@ -53,9 +57,18 @@ export function BookingCard({ booking, onStatusChange }: BookingCardProps) {
         </div>
 
         <div>
-          <div className="flex items-center gap-3 mb-1 flex-wrap">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <h4 className="font-extrabold text-base text-purple-950">{booking.serviceName}</h4>
             {getStatusBadge(booking.status)}
+            {isConnected ? (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full border border-emerald-200">
+                <ShieldCheck className="w-3.5 h-3.5" /> Connected ✓
+              </span>
+            ) : isWaiting ? (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
+                <Clock className="w-3.5 h-3.5" /> Waiting Verification
+              </span>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-2 text-xs font-semibold text-purple-900/70 mb-3">
@@ -80,38 +93,50 @@ export function BookingCard({ booking, onStatusChange }: BookingCardProps) {
       <div className="flex flex-row md:flex-col items-center md:items-end justify-between border-t md:border-t-0 pt-4 md:pt-0 border-pink-100 gap-3 shrink-0">
         <div className="text-left md:text-right">
           <span className="text-[10px] uppercase tracking-wider text-purple-900/50 font-bold block">
-            Amount
+            Amount (Paid ✓)
           </span>
           <span className="text-lg font-extrabold text-purple-950 flex items-center md:justify-end">
-            ₹{booking.amount?.toLocaleString("en-IN")}
+            ₹{booking.amount}
           </span>
         </div>
 
-        {booking.status === "pending" && onStatusChange && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* Verify Connection Button */}
+          {!isConnected && onVerifyClick && (
             <button
-              onClick={() => onStatusChange(booking.id, "cancelled")}
-              className="px-3.5 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-100 transition-colors"
+              onClick={() => onVerifyClick(booking)}
+              className="px-4 py-2 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-xs shadow-md shadow-pink-500/20 hover:opacity-95 transition-all flex items-center gap-1.5"
             >
-              Reject
+              <KeyRound className="w-3.5 h-3.5" /> Verify Connection
             </button>
-            <button
-              onClick={() => onStatusChange(booking.id, "upcoming")}
-              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-md shadow-pink-500/20 hover:opacity-95 transition-all"
-            >
-              Accept
-            </button>
-          </div>
-        )}
+          )}
 
-        {booking.status === "upcoming" && onStatusChange && (
-          <button
-            onClick={() => onStatusChange(booking.id, "completed")}
-            className="px-4 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-500/20 hover:bg-emerald-700 transition-all"
-          >
-            Mark Completed
-          </button>
-        )}
+          {booking.status === "pending" && onStatusChange && (
+            <>
+              <button
+                onClick={() => onStatusChange(booking.id, "cancelled")}
+                className="px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-100 transition-colors"
+              >
+                Reject
+              </button>
+              <button
+                onClick={() => onStatusChange(booking.id, "upcoming")}
+                className="px-4 py-1.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-md shadow-pink-500/20 hover:opacity-95 transition-all"
+              >
+                Accept
+              </button>
+            </>
+          )}
+
+          {booking.status === "upcoming" && isConnected && onStatusChange && (
+            <button
+              onClick={() => onStatusChange(booking.id, "completed")}
+              className="px-4 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-500/20 hover:bg-emerald-700 transition-all"
+            >
+              Mark Completed
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

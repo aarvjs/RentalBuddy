@@ -47,13 +47,18 @@ export default function AdminBookingsPage() {
   }
 
   const filteredBookings = bookings.filter((b) => {
+    const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
-      !searchQuery ||
-      b.serviceName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.id?.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      (b.serviceName && b.serviceName.toLowerCase().includes(q)) ||
+      (b.customerName && b.customerName.toLowerCase().includes(q)) ||
+      (b.providerName && b.providerName.toLowerCase().includes(q)) ||
+      (b.cityName && b.cityName.toLowerCase().includes(q)) ||
+      (b.localityName && b.localityName.toLowerCase().includes(q)) ||
+      (b.id && b.id.toLowerCase().includes(q));
 
-    const matchesStatus = statusFilter === "all" || b.status === statusFilter;
+    const currentStatus = (b.status || "upcoming").toLowerCase();
+    const matchesStatus = statusFilter === "all" || currentStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -71,7 +76,7 @@ export default function AdminBookingsPage() {
       <AdminTable
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search by service name, customer name, ID..."
+        searchPlaceholder="Search by service, customer, partner, location, ID..."
         filterComponent={
           <select
             value={statusFilter}
@@ -92,65 +97,93 @@ export default function AdminBookingsPage() {
               <tr>
                 <th className="p-4">Booking ID</th>
                 <th className="p-4">Customer</th>
+                <th className="p-4">Partner</th>
                 <th className="p-4">Service</th>
                 <th className="p-4">Date & Time</th>
-                <th className="p-4">Duration</th>
+                <th className="p-4">Location</th>
                 <th className="p-4">Amount</th>
+                <th className="p-4">Connection</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100/60">
-              {filteredBookings.map((b) => (
-                <tr key={b.id} className="hover:bg-purple-50/30 transition-colors">
-                  <td className="p-4 font-mono font-bold text-purple-950">{b.id?.slice(0, 10)}</td>
-                  <td className="p-4 font-bold">{b.customerName}</td>
-                  <td className="p-4">{b.serviceName}</td>
-                  <td className="p-4 text-purple-900/70">{b.date} ({b.time})</td>
-                  <td className="p-4 text-purple-900/70">{b.duration}</td>
-                  <td className="p-4 font-extrabold">₹{b.amount?.toLocaleString("en-IN")}</td>
-                  <td className="p-4">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                        b.status === "completed"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : b.status === "upcoming"
-                          ? "bg-indigo-100 text-indigo-800"
-                          : b.status === "pending"
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-rose-100 text-rose-800"
-                      }`}
-                    >
-                      {b.status.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right">
-                    {b.status === "pending" && (
-                      <div className="flex items-center justify-end gap-1.5">
+              {filteredBookings.map((b) => {
+                const displayStatus = (b.status || "upcoming").toLowerCase();
+                const isConnected = b.connectionStatus === "connected";
+
+                return (
+                  <tr key={b.id || Math.random().toString()} className="hover:bg-purple-50/30 transition-colors">
+                    <td className="p-4 font-mono font-bold text-purple-950">{b.id ? b.id.slice(0, 12) : "N/A"}</td>
+                    <td className="p-4 font-bold">{b.customerName || "Member"}</td>
+                    <td className="p-4 font-extrabold text-pink-600">{b.providerName || "Partner"}</td>
+                    <td className="p-4 font-semibold">{b.serviceName || "Service"}</td>
+                    <td className="p-4 text-purple-900/70">{b.date || "Today"} ({b.time || "N/A"})</td>
+                    <td className="p-4 font-medium text-purple-900/60">
+                      {b.localityName || b.cityName ? `${b.localityName || ""}, ${b.cityName || ""}` : "Standard"}
+                    </td>
+                    <td className="p-4 font-black text-purple-950">₹{(b.amount || 0).toLocaleString("en-IN")}</td>
+                    <td className="p-4">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          isConnected
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {isConnected ? "✓ Connected" : "Waiting"}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          displayStatus === "completed"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : displayStatus === "upcoming"
+                            ? "bg-indigo-100 text-indigo-800"
+                            : displayStatus === "pending"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-rose-100 text-rose-800"
+                        }`}
+                      >
+                        {displayStatus.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      {displayStatus === "pending" ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleStatusUpdate(b.id, "cancelled")}
+                            className="px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[11px]"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleStatusUpdate(b.id, "upcoming")}
+                            className="px-3 py-1 rounded-full bg-purple-700 text-white font-bold text-[11px]"
+                          >
+                            Confirm
+                          </button>
+                        </div>
+                      ) : displayStatus === "upcoming" ? (
                         <button
-                          onClick={() => handleStatusUpdate(b.id, "cancelled")}
-                          className="px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[11px]"
+                          onClick={() => handleStatusUpdate(b.id, "completed")}
+                          className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[11px] hover:bg-emerald-100"
                         >
-                          Cancel
+                          Mark Completed
                         </button>
-                        <button
-                          onClick={() => handleStatusUpdate(b.id, "upcoming")}
-                          className="px-3 py-1 rounded-full bg-purple-700 text-white font-bold text-[11px]"
-                        >
-                          Confirm
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         ) : (
           <EmptyState
             icon={Calendar}
             title="No Bookings Found"
-            description="No booking records match the filter criteria."
+            description="No booking records match the search filter criteria."
           />
         )}
       </AdminTable>

@@ -13,6 +13,8 @@ import {
   Loader2,
   CheckCircle2,
   Clock3,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/buttons/Buttons";
@@ -183,40 +185,57 @@ export default function BookingsPage() {
                     </div>
                   </div>
 
-                  {/* Booking Details */}
+                    {/* Booking Details */}
                   <div className="lg:col-span-5 space-y-4">
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3" /> Paid ✓
+                        </span>
+                        
                         <span
                           className={`inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                            booking.status === "upcoming"
-                              ? "bg-pink-100 text-pink-600 border border-pink-200"
-                              : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                            booking.connectionStatus === "connected"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : booking.connectionStatus === "expired"
+                              ? "bg-rose-100 text-rose-800 border border-rose-200"
+                              : "bg-amber-100 text-amber-800 border border-amber-200"
                           }`}
                         >
-                          {booking.status === "upcoming" ? (
-                            <Clock3 className="w-3 h-3" />
-                          ) : (
-                            <CheckCircle2 className="w-3 h-3" />
-                          )}
-                          {booking.status}
+                          {booking.connectionStatus === "connected"
+                            ? "Connected ✓"
+                            : booking.connectionStatus === "expired"
+                            ? "Code Expired"
+                            : "Waiting for Verification"}
                         </span>
                       </div>
                       <h3 className="text-xl font-extrabold text-purple-950">{booking.serviceName}</h3>
                     </div>
 
-                    {/* Companion Avatar & Name */}
-                    <div className="flex items-center gap-3 p-3 rounded-2xl bg-pink-50/50 border border-pink-100">
-                      <div className="relative w-10 h-10 rounded-full overflow-hidden border border-pink-300 shrink-0 bg-pink-200 flex items-center justify-center font-bold text-purple-950">
-                        {booking.providerAvatar ? (
-                          <img src={booking.providerAvatar} alt={booking.providerName} className="w-full h-full object-cover" />
-                        ) : (
-                          booking.providerName.charAt(0)
-                        )}
+                    {/* Companion Avatar & Revealed Contact */}
+                    <div className="p-3.5 rounded-2xl bg-pink-50/70 border border-pink-200 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-10 h-10 rounded-full overflow-hidden border border-pink-300 shrink-0 bg-pink-200 flex items-center justify-center font-bold text-purple-950">
+                          {booking.providerAvatar ? (
+                            <img src={booking.providerAvatar} alt={booking.providerName} className="w-full h-full object-cover" />
+                          ) : (
+                            booking.providerName.charAt(0)
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[10px] font-bold text-pink-600 uppercase tracking-wider block">Matched Companion</span>
+                          <span className="text-sm font-extrabold text-purple-950">{booking.providerName}</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-pink-600 uppercase tracking-wider block">Matched Companion</span>
-                        <span className="text-sm font-extrabold text-purple-950">{booking.providerName}</span>
+
+                      {/* Revealed Contact Number Post-Purchase */}
+                      <div className="pt-2 border-t border-pink-200/60 flex items-center justify-between text-xs">
+                        <span className="font-semibold text-purple-900/70 flex items-center gap-1">
+                          <Phone className="w-3.5 h-3.5 text-pink-600" /> Provider Contact:
+                        </span>
+                        <span className="font-black text-pink-600 bg-white px-2.5 py-0.5 rounded-full border border-pink-200">
+                          {booking.providerPhone || "+91 98765 43210"}
+                        </span>
                       </div>
                     </div>
 
@@ -229,6 +248,11 @@ export default function BookingsPage() {
                         <Clock className="w-4 h-4 text-pink-500" />
                         {booking.time} ({booking.duration})
                       </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-purple-950/5 border border-purple-900/10 text-[11px] text-purple-950 font-medium flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-pink-600 shrink-0" />
+                      <span>Connection code sent to your registered email ({user?.email}).</span>
                     </div>
                   </div>
 
