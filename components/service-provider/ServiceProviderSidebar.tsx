@@ -95,6 +95,14 @@ export function ServiceProviderSidebar({ provider, onLogout }: ServiceProviderSi
 
       {/* Footer Info & Logout */}
       <div className="pt-4 border-t border-pink-100/80 space-y-3">
+        <Link
+          href="/dashboard"
+          className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold text-purple-950 bg-pink-50 hover:bg-pink-100/80 border border-pink-200/70 transition-colors"
+        >
+          <LayoutDashboard className="w-4 h-4 text-pink-500" />
+          <span>Customer Dashboard</span>
+        </Link>
+
         {provider && (
           <div className="p-3 rounded-2xl bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-100 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden border border-pink-200">

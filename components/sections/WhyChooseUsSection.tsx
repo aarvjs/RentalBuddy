@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { Sparkles, ShieldCheck, Lock, Headphones, HeartHandshake, CheckCircle2 } from "lucide-react";
-import { SAFETY_PILLARS, TIMELINE_STEPS } from "@/lib/constants";
+import { SAFETY_PILLARS } from "@/lib/constants";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations/Animations";
 
 const pillarIcons = [ShieldCheck, Lock, Headphones, HeartHandshake];
@@ -35,8 +35,8 @@ export function WhyChooseUsSection() {
               <div className="relative rounded-[2.5rem] p-3 bg-gradient-to-tr from-pink-300 via-white to-purple-300 shadow-2xl overflow-hidden">
                 <div className="relative aspect-[4/3] rounded-[2rem] overflow-hidden">
                   <Image
-                    src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=1000"
-                    alt="Vetted Social Companion"
+                    src="/images/security/security_verification_pillar.jpg"
+                    alt="Triple-Layer Companion Security Verification"
                     fill
                     className="object-cover"
                   />
@@ -87,8 +87,8 @@ export function WhyChooseUsSection() {
               <div className="relative rounded-[2.5rem] p-3 bg-gradient-to-tr from-purple-300 via-white to-pink-300 shadow-2xl overflow-hidden">
                 <div className="relative aspect-[4/3] rounded-[2rem] overflow-hidden">
                   <Image
-                    src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=1200"
-                    alt="Riviera Coastal Getaway & Discretion"
+                    src="/images/security/confidentiality_encryption_pillar.jpg"
+                    alt="Total Confidentiality & Swiss Privacy Protocol"
                     fill
                     className="object-cover"
                   />
@@ -133,7 +133,7 @@ export function WhyChooseUsSection() {
         </div>
 
         {/* Pillars Cards Grid with Photo Headers */}
-        <div className="mb-24">
+        <div>
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {SAFETY_PILLARS.map((pillar, idx) => {
               const IconComponent = pillarIcons[idx] || ShieldCheck;
@@ -164,52 +164,6 @@ export function WhyChooseUsSection() {
                 </StaggerItem>
               );
             })}
-          </StaggerContainer>
-        </div>
-
-        {/* Timeline Section with Photos on Cards */}
-        <div>
-          <div className="text-center max-w-xl mx-auto mb-12">
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-purple-950">
-              The Four Steps to Your Moment
-            </h3>
-            <p className="text-purple-900/70 text-sm mt-2">
-              Simple, confidential, and managed entirely by your personal concierge.
-            </p>
-          </div>
-
-          <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
-            {TIMELINE_STEPS.map((step) => (
-              <StaggerItem key={step.step}>
-                <div className="rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-100 shadow-lg shadow-purple-500/5 h-full flex flex-col justify-between group hover:border-pink-300 transition-all overflow-hidden">
-                  <div className="relative h-28 w-full overflow-hidden shrink-0">
-                    <Image
-                      src={step.imageUrl}
-                      alt={step.title}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-purple-950/60 via-transparent to-transparent" />
-                    <div className="absolute top-3 left-4 text-3xl font-extrabold text-white font-sans drop-shadow-md">
-                      {step.step}
-                    </div>
-                  </div>
-
-                  <div className="p-6 flex-1 flex flex-col justify-between">
-                    <div>
-                      <h4 className="text-base font-bold text-purple-950 mb-2">{step.title}</h4>
-                      <p className="text-purple-900/70 text-xs leading-relaxed">
-                        {step.description}
-                      </p>
-                    </div>
-                    <div className="pt-4 mt-4 border-t border-pink-100 flex items-center gap-1.5 text-[11px] font-bold text-pink-600">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Guaranteed Care</span>
-                    </div>
-                  </div>
-                </div>
-              </StaggerItem>
-            ))}
           </StaggerContainer>
         </div>
       </div>

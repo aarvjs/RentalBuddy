@@ -11,6 +11,7 @@ import {
   MasterServiceItem,
 } from "@/lib/service-provider/provider-services";
 import { ProviderProfile, ProviderAvailabilityConfig } from "@/types/service-provider";
+import { isValidLocation } from "@/lib/locations";
 import { EmptyState } from "@/components/service-provider/EmptyState";
 import {
   Briefcase,
@@ -264,9 +265,10 @@ export default function ServiceProviderServicesPage() {
 
   const cleanLoc = (str?: string) => (str || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
 
-  const provCity = cleanLoc(profile?.cityId || profile?.cityName || profile?.city);
-  const provLoc = cleanLoc(profile?.localityId || profile?.localityName || profile?.locality);
-  const hasSavedLocation = Boolean(provCity && provLoc);
+  const provLocObj = profile?.providerLocation || profile?.location;
+  const provCity = cleanLoc(provLocObj?.cityId || provLocObj?.cityName || provLocObj?.city || profile?.cityId || profile?.cityName || profile?.city);
+  const provLoc = cleanLoc(provLocObj?.localityId || provLocObj?.localityName || provLocObj?.locality || profile?.localityId || profile?.localityName || profile?.locality);
+  const hasSavedLocation = isValidLocation(provLocObj || profile);
 
   const isKycApproved = profile?.kycStatus === "approved";
   const activeCount = Object.values(configsMap).filter((cfg) => cfg.isAvailable).length;

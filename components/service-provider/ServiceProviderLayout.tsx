@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ProviderProfile } from "@/types/service-provider";
 import { logoutProvider } from "@/lib/service-provider/provider-auth";
 import { ServiceProviderSidebar } from "./ServiceProviderSidebar";
@@ -56,7 +56,7 @@ export function ServiceProviderLayout({ children }: { children: React.ReactNode 
             }, 2500);
           }
         } else {
-          // Check if user is in users/{uid} collection (normal customer account)
+          // Check if user is in users/{uid} collection (normal customer account or dual account)
           const userRef = doc(db, "users", user.uid);
           const userSnap = await getDoc(userRef);
 
@@ -76,6 +76,11 @@ export function ServiceProviderLayout({ children }: { children: React.ReactNode 
                 city: userData.city || "",
                 photoURL: userData.photoURL || user.photoURL || undefined,
               };
+              try {
+                await setDoc(pRef, fallbackProvider);
+              } catch (e) {
+                console.warn("Could not save fallback provider document:", e);
+              }
               setProviderProfile(fallbackProvider);
               setAccessDenied(false);
             } else {

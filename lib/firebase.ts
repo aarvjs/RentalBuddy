@@ -41,6 +41,23 @@ export interface UserProfileData {
   cityName?: string;
   localityId?: string;
   localityName?: string;
+  customerLocation?: {
+    country: string;
+    state: string;
+    city: string;
+    locality: string;
+    address: string;
+    pincode: string;
+    latitude: number;
+    longitude: number;
+    placeId?: string;
+    stateId?: string;
+    stateName?: string;
+    cityId?: string;
+    cityName?: string;
+    localityId?: string;
+    localityName?: string;
+  };
   location?: {
     country: string;
     state: string;
@@ -51,6 +68,12 @@ export interface UserProfileData {
     latitude: number;
     longitude: number;
     placeId?: string;
+    stateId?: string;
+    stateName?: string;
+    cityId?: string;
+    cityName?: string;
+    localityId?: string;
+    localityName?: string;
   };
   gender?: string;
   userType: "customer" | "provider" | "both";
@@ -99,7 +122,7 @@ export interface CustomerRegisterInput {
   password: string;
   city: string;
   gender: string;
-  preference?: "Find a Partner" | "Become a Partner" | "Both";
+  preference?: "Find a Partner" | "Both";
   mobileNumber?: string;
   pincode?: string;
 }
@@ -128,6 +151,9 @@ export async function registerCustomerUser(input: CustomerRegisterInput): Promis
     console.warn("Could not update auth display name:", e);
   }
 
+  const userType = preference === "Both" ? "both" : "customer";
+  const createdAt = new Date().toISOString();
+
   try {
     const profileData: UserProfileData = {
       uid: user.uid,
@@ -137,14 +163,34 @@ export async function registerCustomerUser(input: CustomerRegisterInput): Promis
       city: city.trim(),
       pincode: pincode?.trim() || "",
       gender: gender || "",
-      userType: "customer",
+      userType,
       partnerPreference: preference || "Find a Partner",
-      createdAt: new Date().toISOString(),
+      createdAt,
     };
 
     await setDoc(doc(db, "users", user.uid), profileData);
   } catch (e) {
     console.warn("Could not save customer profile to Firestore:", e);
+  }
+
+  if (userType === "both") {
+    try {
+      const providerDoc = {
+        uid: user.uid,
+        fullName: fullName.trim(),
+        email: cleanEmail,
+        mobileNumber: mobileNumber?.trim() || "",
+        city: city.trim(),
+        pincode: pincode?.trim() || "",
+        role: "provider",
+        kycStatus: "pending",
+        providerStatus: "pending",
+        createdAt,
+      };
+      await setDoc(doc(db, "providers", user.uid), providerDoc);
+    } catch (e) {
+      console.warn("Could not save provider document for both user:", e);
+    }
   }
 
   return user;
@@ -337,4 +383,47 @@ export async function getUserPayments(uid: string): Promise<CustomerPaymentRecor
     console.warn("Could not fetch user payments from Firestore:", error);
     return [];
   }
+}
+
+export interface ContactInquiryInput {
+  name: string;
+  email: string;
+  phone?: string;
+  occasion: string;
+  destination?: string;
+  notes?: string;
+}
+
+export async function submitContactInquiry(input: ContactInquiryInput): Promise<string> {
+  try {
+    const response = await fetch("/api/inquiries/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    const data = await response.json();
+    if (response.ok && data.success) {
+      return data.inquiryId || "success";
+    }
+  } catch (err) {
+    console.warn("API route inquiry submit notice, trying direct Firestore write:", err);
+  }
+
+  // Fallback direct Firestore write if API route is unavailable
+  const createdAt = new Date().toISOString();
+  const inquiryRef = doc(collection(db, "inquiries"));
+  const inquiryData = {
+    id: inquiryRef.id,
+    name: input.name.trim(),
+    email: input.email.trim().toLowerCase(),
+    phone: input.phone?.trim() || "",
+    occasion: input.occasion || "General Inquiry",
+    destination: input.destination || "",
+    notes: input.notes?.trim() || "",
+    status: "new",
+    createdAt,
+  };
+  await setDoc(inquiryRef, inquiryData);
+  return inquiryRef.id;
 }

@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/service-provider/EmptyState";
 import { Plus, ArrowRight, Calendar, Briefcase, Loader2, MapPin } from "lucide-react";
 
 import { VerifyConnectionModal } from "@/components/service-provider/VerifyConnectionModal";
+import { isValidLocation } from "@/lib/locations";
 
 export default function ServiceProviderDashboardPage() {
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
@@ -55,6 +56,12 @@ export default function ServiceProviderDashboardPage() {
 
     loadDashboardData();
   }, []);
+
+  const hasLocation = isValidLocation(profile?.providerLocation || profile?.location || profile);
+  const provLocObj = profile?.providerLocation || profile?.location;
+  const locationText = provLocObj
+    ? `${provLocObj.locality || profile?.localityName || profile?.locality || provLocObj.city}, ${provLocObj.city || profile?.cityName || profile?.city}`
+    : `${profile?.localityName || profile?.locality || profile?.cityName || profile?.city}, ${profile?.cityName || profile?.city}`;
 
   const handleVerifySuccess = (bookingId: string) => {
     setBookings((prev) =>
@@ -128,7 +135,7 @@ export default function ServiceProviderDashboardPage() {
       </div>
 
       {/* Provider Operating Location Banner */}
-      {profile?.cityId || profile?.city ? (
+      {hasLocation ? (
         <div className="p-4 sm:p-5 rounded-3xl bg-white/90 border border-pink-100 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-pink-100 border border-pink-200 flex items-center justify-center text-pink-600 shrink-0">
@@ -138,7 +145,7 @@ export default function ServiceProviderDashboardPage() {
               <div className="text-xs font-extrabold text-purple-950 flex items-center gap-1.5">
                 <span>Operating Location:</span>
                 <span className="text-pink-600 font-extrabold">
-                  {profile?.localityName || profile?.locality || profile?.cityName || profile?.city}, {profile?.cityName || profile?.city}
+                  {locationText}
                 </span>
               </div>
               <p className="text-[11px] text-purple-900/60 font-medium">

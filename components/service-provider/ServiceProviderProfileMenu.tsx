@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { User, Settings, LogOut, ChevronDown, ShieldCheck } from "lucide-react";
+import { User, Settings, LogOut, ChevronDown, ShieldCheck, LayoutDashboard } from "lucide-react";
 import { ProviderProfile } from "@/types/service-provider";
+import { useAuth } from "@/lib/auth-context";
 
 interface ServiceProviderProfileMenuProps {
   provider: ProviderProfile | null;
@@ -16,6 +17,10 @@ export function ServiceProviderProfileMenu({
 }: ServiceProviderProfileMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { profile: userProfile } = useAuth();
+
+  const effectiveUserType = userProfile?.userType || provider?.userType || "provider";
+  const isBoth = effectiveUserType === "both";
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -60,6 +65,20 @@ export function ServiceProviderProfileMenu({
           </div>
 
           <div className="space-y-0.5">
+            {isBoth && (
+              <>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
+                >
+                  <LayoutDashboard className="w-4 h-4 text-pink-500" />
+                  <span>Customer Dashboard</span>
+                </Link>
+                <div className="my-1 border-t border-pink-100/80" />
+              </>
+            )}
+
             <Link
               href="/service-provider/profile"
               onClick={() => setOpen(false)}

@@ -13,12 +13,14 @@ import {
   ArrowRight,
   Loader2,
   AlertTriangle,
+  MessageSquare,
 } from "lucide-react";
 import { getAllUsers } from "@/lib/admin/admin-users";
 import { getAllProviders } from "@/lib/admin/admin-providers";
 import { getAllKycSubmissions } from "@/lib/admin/admin-kyc";
 import { getAllServicesAdmin } from "@/lib/admin/admin-services";
 import { getAllBookingsAdmin } from "@/lib/admin/admin-bookings";
+import { getAllInquiriesAdmin, AdminInquiry } from "@/lib/admin/admin-inquiries";
 import { AdminUserListItem, AdminProviderListItem } from "@/types/admin";
 import { MasterServiceItem } from "@/lib/service-provider/provider-services";
 import { ProviderKyc, ProviderBooking } from "@/types/service-provider";
@@ -31,24 +33,27 @@ export default function AdminDashboardPage() {
   const [kycList, setKycList] = useState<ProviderKyc[]>([]);
   const [services, setServices] = useState<MasterServiceItem[]>([]);
   const [bookings, setBookings] = useState<ProviderBooking[]>([]);
+  const [inquiries, setInquiries] = useState<AdminInquiry[]>([]);
 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadDashboardMetrics() {
       try {
-        const [uList, pList, kList, sList, bList] = await Promise.all([
+        const [uList, pList, kList, sList, bList, iList] = await Promise.all([
           getAllUsers(),
           getAllProviders(),
           getAllKycSubmissions(),
           getAllServicesAdmin(),
           getAllBookingsAdmin(),
+          getAllInquiriesAdmin(),
         ]);
         setUsers(uList);
         setProviders(pList);
         setKycList(kList);
         setServices(sList);
         setBookings(bList);
+        setInquiries(iList);
       } catch (err) {
         console.error("Error loading admin dashboard metrics:", err);
       } finally {
@@ -156,6 +161,13 @@ export default function AdminDashboardPage() {
           icon={ShieldCheck}
           color="from-emerald-500 to-teal-600"
           subtitle="Completed Service Runs"
+        />
+        <AdminStatCard
+          title="Client Inquiries"
+          value={inquiries.length}
+          icon={MessageSquare}
+          color="from-pink-500 to-purple-600"
+          subtitle="Submitted Contact Forms"
         />
         <AdminStatCard
           title="Total Platform Revenue"

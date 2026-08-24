@@ -217,7 +217,7 @@ export const SAFETY_PILLARS = [
       "Government ID verification, background checks, and personal interviews for every companion.",
     icon: "ShieldCheck",
     imageUrl:
-      "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800",
+      "/images/security/security_verification_pillar.jpg",
   },
   {
     title: "Total Confidentiality & Discretion",
@@ -225,7 +225,7 @@ export const SAFETY_PILLARS = [
       "Your privacy is paramount. All member records are protected under Swiss 256-bit encryption standards with zero third-party disclosure.",
     icon: "Lock",
     imageUrl:
-      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=800",
+      "/images/security/confidentiality_encryption_pillar.jpg",
   },
   {
     title: "24/7 Safety Concierge",

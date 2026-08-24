@@ -13,6 +13,7 @@ import {
   Wallet,
   Settings,
   LayoutDashboard,
+  Briefcase,
   ChevronDown,
 } from "lucide-react";
 import { NAV_LINKS, SITE_CONFIG } from "@/lib/constants";
@@ -161,8 +162,19 @@ export function Navbar() {
                             className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
                           >
                             <LayoutDashboard className="w-4 h-4 text-pink-500" />
-                            <span>Dashboard</span>
+                            <span>Customer Dashboard</span>
                           </Link>
+
+                          {(profile?.userType === "both" || profile?.userType === "provider") && (
+                            <Link
+                              href="/service-provider/dashboard"
+                              onClick={() => setDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
+                            >
+                              <Briefcase className="w-4 h-4 text-pink-500" />
+                              <span>Provider Portal</span>
+                            </Link>
+                          )}
 
                           <Link
                             href="/settings"
@@ -285,8 +297,16 @@ export function Navbar() {
                     href="/dashboard"
                     className="py-2.5 px-4 rounded-full bg-pink-50 text-xs font-bold text-purple-950 flex items-center gap-2"
                   >
-                    <LayoutDashboard className="w-4 h-4 text-pink-500" /> Dashboard
+                    <LayoutDashboard className="w-4 h-4 text-pink-500" /> Customer Dashboard
                   </Link>
+                  {(profile?.userType === "both" || profile?.userType === "provider") && (
+                    <Link
+                      href="/service-provider/dashboard"
+                      className="py-2.5 px-4 rounded-full bg-pink-50 text-xs font-bold text-purple-950 flex items-center gap-2"
+                    >
+                      <Briefcase className="w-4 h-4 text-pink-500" /> Provider Portal
+                    </Link>
+                  )}
                   <Link
                     href="/settings"
                     className="py-2.5 px-4 rounded-full bg-pink-50 text-xs font-bold text-purple-950 flex items-center gap-2"

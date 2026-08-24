@@ -18,6 +18,7 @@ import {
   LogOut,
   Shield,
   X,
+  MessageSquare,
 } from "lucide-react";
 import { AdminProfile } from "@/types/admin";
 
@@ -36,6 +37,7 @@ export function AdminSidebar({ admin, onLogout, isOpen = true, onClose }: AdminS
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Service Providers", href: "/admin/providers", icon: Briefcase },
     { name: "KYC Verification", href: "/admin/kyc", icon: ShieldCheck },
+    { name: "Inquiries", href: "/admin/inquiries", icon: MessageSquare },
     { name: "Bookings", href: "/admin/bookings", icon: Calendar },
     { name: "Services", href: "/admin/services", icon: Layers },
     { name: "Payments", href: "/admin/payments", icon: CreditCard },

@@ -7,6 +7,7 @@ export interface ProviderProfile {
   email: string;
   mobileNumber: string;
   role: "provider";
+  userType?: "customer" | "provider" | "both";
   kycStatus: ProviderKycStatus;
   providerStatus: ProviderAccountStatus;
   createdAt: string;
@@ -22,6 +23,23 @@ export interface ProviderProfile {
   localityId?: string;
   localityName?: string;
   locality?: string;
+  providerLocation?: {
+    country: string;
+    state: string;
+    city: string;
+    locality: string;
+    address: string;
+    pincode: string;
+    latitude: number;
+    longitude: number;
+    placeId?: string;
+    stateId?: string;
+    stateName?: string;
+    cityId?: string;
+    cityName?: string;
+    localityId?: string;
+    localityName?: string;
+  };
   location?: {
     country: string;
     state: string;
@@ -32,6 +50,12 @@ export interface ProviderProfile {
     latitude: number;
     longitude: number;
     placeId?: string;
+    stateId?: string;
+    stateName?: string;
+    cityId?: string;
+    cityName?: string;
+    localityId?: string;
+    localityName?: string;
   };
   bio?: string;
   photoURL?: string;

@@ -106,6 +106,13 @@ export function ServiceProviderMobileNav({
         </div>
 
         <div className="pt-4 border-t border-pink-100 space-y-3">
+          <Link
+            href="/dashboard"
+            onClick={onClose}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold text-purple-950 bg-pink-50 border border-pink-200"
+          >
+            <LayoutDashboard className="w-4 h-4 text-pink-500" /> Customer Dashboard
+          </Link>
           {provider && (
             <div className="p-3 rounded-2xl bg-pink-50 border border-pink-200 flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden border border-pink-200">

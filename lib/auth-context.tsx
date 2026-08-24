@@ -9,6 +9,7 @@ interface AuthContextType {
   profile: UserProfileData | null;
   loading: boolean;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   authModalOpen: boolean;
   authModalMessage: string;
   returnUrl: string | null;
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   logout: async () => {},
+  refreshProfile: async () => {},
   authModalOpen: false,
   authModalMessage: "Please sign in or create an account to book this service.",
   returnUrl: null,
@@ -40,12 +42,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
 
+  const fetchProfile = async (uid: string) => {
+    const userProf = await getUserProfile(uid);
+    setProfile(userProf);
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const userProf = await getUserProfile(currentUser.uid);
-        setProfile(userProf);
+        await fetchProfile(currentUser.uid);
       } else {
         setProfile(null);
       }
@@ -54,6 +60,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  const refreshProfile = async () => {
+    if (auth.currentUser) {
+      await fetchProfile(auth.currentUser.uid);
+    }
+  };
 
   const logout = async () => {
     await logoutUser();
@@ -78,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         loading,
         logout,
+        refreshProfile,
         authModalOpen,
         authModalMessage,
         returnUrl,

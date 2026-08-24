@@ -27,7 +27,7 @@ import {
   Receipt,
   CreditCard,
 } from "lucide-react";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/buttons/Buttons";
 import { FadeIn, StaggerContainer, StaggerItem } from "@/components/animations/Animations";
@@ -46,6 +46,7 @@ import {
   MasterServiceItem,
 } from "@/lib/service-provider/provider-services";
 import { LocationSearchSelector, ServiceLocationData } from "@/components/location/LocationSearchSelector";
+import { isValidLocation } from "@/lib/locations";
 
 export interface EnrolledProviderInfo {
   providerId: string;
@@ -96,7 +97,7 @@ function generateTimeSlots(fromStr?: string, toStr?: string): string[] {
 }
 
 export default function DashboardPage() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<"upcoming" | "completed" | "cancelled" | "payments">("upcoming");
@@ -142,18 +143,39 @@ export default function DashboardPage() {
 
   // Check saved customer location or trigger onboarding modal
   useEffect(() => {
+    if (loading) return;
+
     if (profile) {
-      const hasSavedLoc = Boolean(profile.cityId && profile.localityId) || Boolean(profile.location?.city && profile.location?.locality);
-      if (hasSavedLoc) {
+      const savedLoc = profile.customerLocation || profile.location;
+      if (isValidLocation(savedLoc)) {
         setCustomerLocation({
-          fullAddress: profile.location?.address || `${profile.localityName || ""}, ${profile.cityName || profile.city || ""}, ${profile.stateName || profile.state || ""}`,
-          country: profile.location?.country || "India",
-          state: profile.location?.state || profile.stateName || profile.state || "",
-          city: profile.location?.city || profile.cityName || profile.city || "",
-          locality: profile.location?.locality || profile.localityName || "",
-          pincode: profile.location?.pincode || profile.pincode || "",
-          latitude: profile.location?.latitude || 26.4499,
-          longitude: profile.location?.longitude || 80.3319,
+          fullAddress: savedLoc?.address || `${savedLoc?.locality}, ${savedLoc?.city}`,
+          country: savedLoc?.country || "India",
+          state: savedLoc?.state || savedLoc?.stateName || "",
+          city: savedLoc?.city || savedLoc?.cityName || "",
+          locality: savedLoc?.locality || savedLoc?.localityName || "",
+          pincode: savedLoc?.pincode || "",
+          latitude: Number(savedLoc?.latitude) || 26.4499,
+          longitude: Number(savedLoc?.longitude) || 80.3319,
+          placeId: savedLoc?.placeId,
+          stateId: savedLoc?.stateId || "up",
+          stateName: savedLoc?.stateName || savedLoc?.state || "Uttar Pradesh",
+          cityId: savedLoc?.cityId || "kanpur",
+          cityName: savedLoc?.cityName || savedLoc?.city || "Kanpur",
+          localityId: savedLoc?.localityId || "panki",
+          localityName: savedLoc?.localityName || savedLoc?.locality || "Panki",
+        });
+        setIsLocationModalOpen(false);
+      } else if (isValidLocation(profile)) {
+        setCustomerLocation({
+          fullAddress: `${profile.localityName || profile.city}, ${profile.cityName || profile.city}`,
+          country: "India",
+          state: profile.stateName || profile.state || "",
+          city: profile.cityName || profile.city || "",
+          locality: profile.localityName || profile.city || "",
+          pincode: profile.pincode || "",
+          latitude: 26.4499,
+          longitude: 80.3319,
           stateId: profile.stateId || "up",
           stateName: profile.stateName || profile.state || "Uttar Pradesh",
           cityId: profile.cityId || "kanpur",
@@ -161,11 +183,12 @@ export default function DashboardPage() {
           localityId: profile.localityId || "panki",
           localityName: profile.localityName || "Panki",
         });
+        setIsLocationModalOpen(false);
       } else {
         setIsLocationModalOpen(true);
       }
     }
-  }, [profile]);
+  }, [user, profile, loading]);
 
   const handleSaveCustomerLocation = async (locToSave?: ServiceLocationData | null) => {
     const target = locToSave || tempLocation;
@@ -173,6 +196,24 @@ export default function DashboardPage() {
 
     setSavingLocation(true);
     try {
+      const locPayload = {
+        country: target.country,
+        state: target.state,
+        city: target.city,
+        locality: target.locality,
+        address: target.fullAddress,
+        pincode: target.pincode,
+        latitude: target.latitude,
+        longitude: target.longitude,
+        placeId: target.placeId,
+        stateId: target.stateId,
+        stateName: target.stateName,
+        cityId: target.cityId,
+        cityName: target.cityName,
+        localityId: target.localityId,
+        localityName: target.localityName,
+      };
+
       await updateUserProfile(user.uid, {
         city: target.city,
         state: target.state,
@@ -183,19 +224,36 @@ export default function DashboardPage() {
         cityName: target.cityName,
         localityId: target.localityId,
         localityName: target.localityName,
-        location: {
-          country: target.country,
-          state: target.state,
-          city: target.city,
-          locality: target.locality,
-          address: target.fullAddress,
-          pincode: target.pincode,
-          latitude: target.latitude,
-          longitude: target.longitude,
-          placeId: target.placeId,
-        },
+        customerLocation: locPayload,
+        location: locPayload,
       });
 
+      if (profile?.userType === "both" || profile?.userType === "provider") {
+        try {
+          await setDoc(
+            doc(db, "providers", user.uid),
+            {
+              city: target.city,
+              state: target.state,
+              pincode: target.pincode,
+              stateId: target.stateId,
+              stateName: target.stateName,
+              cityId: target.cityId,
+              cityName: target.cityName,
+              localityId: target.localityId,
+              localityName: target.localityName,
+              providerLocation: locPayload,
+              location: locPayload,
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          console.warn("Could not sync location to providers document:", e);
+        }
+      }
+
+      await refreshProfile();
       setCustomerLocation(target);
       setIsLocationModalOpen(false);
     } catch (e) {

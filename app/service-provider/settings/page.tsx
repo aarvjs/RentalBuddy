@@ -4,9 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { updatePassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, getUserProfile } from "@/lib/firebase";
 import { logoutProvider, getProviderProfile } from "@/lib/service-provider/provider-auth";
 import { LocationSearchSelector, ServiceLocationData } from "@/components/location/LocationSearchSelector";
+import { isValidLocation } from "@/lib/locations";
 import {
   Settings,
   Lock,
@@ -19,6 +20,7 @@ import {
   Mail,
   MapPin,
   Save,
+  Copy,
 } from "lucide-react";
 
 export default function ServiceProviderSettingsPage() {
@@ -32,6 +34,7 @@ export default function ServiceProviderSettingsPage() {
 
   // OpenStreetMap Location state
   const [providerLoc, setProviderLoc] = useState<ServiceLocationData | null>(null);
+  const [custLocData, setCustLocData] = useState<ServiceLocationData | null>(null);
   const [savingLocation, setSavingLocation] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -42,20 +45,42 @@ export default function ServiceProviderSettingsPage() {
   const user = auth.currentUser;
 
   useEffect(() => {
-    async function loadProviderLocation() {
+    async function loadLocations() {
       if (!user) return;
       try {
-        const prof = await getProviderProfile(user.uid);
-        if (prof && (prof.cityId || prof.city) && (prof.localityId || prof.locality || prof.address)) {
+        const [prof, userProf] = await Promise.all([
+          getProviderProfile(user.uid),
+          getUserProfile(user.uid),
+        ]);
+
+        const provLocation = prof?.providerLocation || prof?.location;
+        if (prof && isValidLocation(provLocation)) {
           setProviderLoc({
-            fullAddress: prof.location?.address || `${prof.localityName || prof.locality || ""}, ${prof.cityName || prof.city || ""}, ${prof.stateName || prof.state || ""}`,
-            country: prof.location?.country || "India",
-            state: prof.location?.state || prof.stateName || prof.state || "",
-            city: prof.location?.city || prof.cityName || prof.city || "",
-            locality: prof.location?.locality || prof.localityName || prof.locality || "",
-            pincode: prof.location?.pincode || prof.pincode || "",
-            latitude: prof.location?.latitude || 26.4499,
-            longitude: prof.location?.longitude || 80.3319,
+            fullAddress: provLocation?.address || `${provLocation?.locality || ""}, ${provLocation?.city || ""}, ${provLocation?.state || ""}`,
+            country: provLocation?.country || "India",
+            state: provLocation?.state || provLocation?.stateName || prof.stateName || prof.state || "",
+            city: provLocation?.city || provLocation?.cityName || prof.cityName || prof.city || "",
+            locality: provLocation?.locality || provLocation?.localityName || prof.localityName || prof.locality || "",
+            pincode: provLocation?.pincode || prof.pincode || "",
+            latitude: Number(provLocation?.latitude) || 26.4499,
+            longitude: Number(provLocation?.longitude) || 80.3319,
+            stateId: provLocation?.stateId || prof.stateId || "",
+            stateName: provLocation?.stateName || provLocation?.state || prof.stateName || prof.state || "",
+            cityId: provLocation?.cityId || prof.cityId || "",
+            cityName: provLocation?.cityName || provLocation?.city || prof.cityName || prof.city || "",
+            localityId: provLocation?.localityId || prof.localityId || "",
+            localityName: provLocation?.localityName || provLocation?.locality || prof.localityName || prof.locality || "",
+          });
+        } else if (prof && (prof.cityId || prof.city) && (prof.localityId || prof.locality || prof.address)) {
+          setProviderLoc({
+            fullAddress: `${prof.localityName || prof.locality || ""}, ${prof.cityName || prof.city || ""}, ${prof.stateName || prof.state || ""}`,
+            country: "India",
+            state: prof.stateName || prof.state || "",
+            city: prof.cityName || prof.city || "",
+            locality: prof.localityName || prof.locality || "",
+            pincode: prof.pincode || "",
+            latitude: 26.4499,
+            longitude: 80.3319,
             stateId: prof.stateId || "",
             stateName: prof.stateName || prof.state || "",
             cityId: prof.cityId || "",
@@ -64,12 +89,39 @@ export default function ServiceProviderSettingsPage() {
             localityName: prof.localityName || prof.locality || "",
           });
         }
+
+        const customerLoc = userProf?.customerLocation || userProf?.location;
+        if (userProf && isValidLocation(customerLoc)) {
+          setCustLocData({
+            fullAddress: customerLoc?.address || `${customerLoc?.locality || ""}, ${customerLoc?.city || ""}`,
+            country: customerLoc?.country || "India",
+            state: customerLoc?.state || customerLoc?.stateName || userProf.stateName || userProf.state || "",
+            city: customerLoc?.city || customerLoc?.cityName || userProf.cityName || userProf.city || "",
+            locality: customerLoc?.locality || customerLoc?.localityName || userProf.localityName || "",
+            pincode: customerLoc?.pincode || userProf.pincode || "",
+            latitude: Number(customerLoc?.latitude) || 26.4499,
+            longitude: Number(customerLoc?.longitude) || 80.3319,
+            stateId: customerLoc?.stateId || userProf.stateId || "",
+            stateName: customerLoc?.stateName || customerLoc?.state || userProf.stateName || userProf.state || "",
+            cityId: customerLoc?.cityId || userProf.cityId || "",
+            cityName: customerLoc?.cityName || customerLoc?.city || userProf.cityName || userProf.city || "",
+            localityId: customerLoc?.localityId || userProf.localityId || "",
+            localityName: customerLoc?.localityName || customerLoc?.locality || userProf.localityName || "",
+          });
+        }
       } catch (e) {
-        console.warn("Could not load provider location:", e);
+        console.warn("Could not load provider/user location:", e);
       }
     }
-    loadProviderLocation();
+    loadLocations();
   }, [user]);
+
+  const handleUseCustomerLocation = () => {
+    if (custLocData) {
+      setProviderLoc(custLocData);
+      setSuccessMessage("Customer location copied! Click 'Save Operating Location Setup' below to save.");
+    }
+  };
 
   const handleSaveLocation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,6 +138,24 @@ export default function ServiceProviderSettingsPage() {
     try {
       setSavingLocation(true);
 
+      const locObj = {
+        country: providerLoc.country,
+        state: providerLoc.state,
+        city: providerLoc.city,
+        locality: providerLoc.locality,
+        address: providerLoc.fullAddress,
+        pincode: providerLoc.pincode,
+        latitude: providerLoc.latitude,
+        longitude: providerLoc.longitude,
+        placeId: providerLoc.placeId,
+        stateId: providerLoc.stateId,
+        stateName: providerLoc.stateName,
+        cityId: providerLoc.cityId,
+        cityName: providerLoc.cityName,
+        localityId: providerLoc.localityId,
+        localityName: providerLoc.localityName,
+      };
+
       const locPayload = {
         city: providerLoc.city,
         state: providerLoc.state,
@@ -96,22 +166,34 @@ export default function ServiceProviderSettingsPage() {
         cityName: providerLoc.cityName,
         localityId: providerLoc.localityId,
         localityName: providerLoc.localityName,
-        location: {
-          country: providerLoc.country,
-          state: providerLoc.state,
-          city: providerLoc.city,
-          locality: providerLoc.locality,
-          address: providerLoc.fullAddress,
-          pincode: providerLoc.pincode,
-          latitude: providerLoc.latitude,
-          longitude: providerLoc.longitude,
-          placeId: providerLoc.placeId,
-        },
+        providerLocation: locObj,
+        location: locObj,
         updatedAt: new Date().toISOString(),
       };
 
       await setDoc(doc(db, "providers", user.uid), locPayload, { merge: true });
-      await setDoc(doc(db, "users", user.uid), locPayload, { merge: true });
+      try {
+        await setDoc(
+          doc(db, "users", user.uid),
+          {
+            city: providerLoc.city,
+            state: providerLoc.state,
+            pincode: providerLoc.pincode,
+            stateId: providerLoc.stateId,
+            stateName: providerLoc.stateName,
+            cityId: providerLoc.cityId,
+            cityName: providerLoc.cityName,
+            localityId: providerLoc.localityId,
+            localityName: providerLoc.localityName,
+            customerLocation: locObj,
+            location: locObj,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn("Could not sync location to users document:", e);
+      }
 
       setSuccessMessage("Operating service location updated successfully! Admin services matching your location will be available for enrollment.");
     } catch (err: any) {
@@ -202,7 +284,7 @@ export default function ServiceProviderSettingsPage() {
 
       {/* Service Location Setup Section */}
       <form onSubmit={handleSaveLocation} className="p-6 sm:p-8 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-100 shadow-md space-y-6">
-        <div className="pb-3 border-b border-pink-100 flex items-center justify-between">
+        <div className="pb-3 border-b border-pink-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-extrabold text-purple-950 flex items-center gap-2">
               <MapPin className="w-4 h-4 text-pink-500" /> Service Operating Location Setup
@@ -211,6 +293,16 @@ export default function ServiceProviderSettingsPage() {
               Search & select your operating location using OpenStreetMap. You will discover and enroll in master services created by Admin for this location.
             </p>
           </div>
+          {custLocData && (
+            <button
+              type="button"
+              onClick={handleUseCustomerLocation}
+              className="px-4 py-2 rounded-full bg-pink-50 hover:bg-pink-100 border border-pink-200 text-purple-950 text-xs font-extrabold transition-all flex items-center gap-1.5 shrink-0 shadow-xs"
+            >
+              <Copy className="w-3.5 h-3.5 text-pink-500" />
+              <span>Use my customer location</span>
+            </button>
+          )}
         </div>
 
         <LocationSearchSelector

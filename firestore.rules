@@ -60,5 +60,11 @@ service cloud.firestore {
       allow update: if request.auth != null && (resource.data.providerId == request.auth.uid || isAdmin());
       allow delete: if isAdmin();
     }
+
+    // Inquiries collection
+    match /inquiries/{inquiryId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
   }
 }

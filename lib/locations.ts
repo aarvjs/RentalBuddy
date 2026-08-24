@@ -163,3 +163,14 @@ export function getLocalityById(stateId?: string, cityId?: string, localityId?: 
   if (!localityId) return undefined;
   return localities.find((l) => l.id === localityId);
 }
+
+export function isValidLocation(loc: any): boolean {
+  if (!loc || typeof loc !== "object") return false;
+  const hasCity = Boolean(loc.city || loc.cityName || loc.cityId);
+  const hasLocalityOrAddress = Boolean(
+    loc.locality || loc.localityName || loc.localityId || loc.address || loc.fullAddress
+  );
+  const hasLat = loc.latitude !== undefined && loc.latitude !== null && !isNaN(Number(loc.latitude));
+  const hasLng = loc.longitude !== undefined && loc.longitude !== null && !isNaN(Number(loc.longitude));
+  return hasCity && hasLocalityOrAddress && hasLat && hasLng;
+}

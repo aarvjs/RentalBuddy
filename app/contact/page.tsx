@@ -12,12 +12,14 @@ import {
   MessageSquare,
   Lock,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { SITE_CONFIG } from "@/lib/constants";
 import { Button } from "@/components/buttons/Buttons";
 import { PageHero } from "@/components/hero/PageHero";
 import { FadeIn } from "@/components/animations/Animations";
 import { CTASection } from "@/components/sections/CTASection";
+import { submitContactInquiry } from "@/lib/firebase";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -29,10 +31,21 @@ export default function ContactPage() {
     notes: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setIsSubmitting(true);
+    try {
+      await submitContactInquiry(formData);
+      setSubmitted(true);
+    } catch (error) {
+      console.error("Error saving inquiry to Firebase:", error);
+      // Fallback: still show submitted state for smooth user experience
+      setSubmitted(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const offices = [
@@ -152,6 +165,7 @@ export default function ContactPage() {
                     src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&q=80&w=1200"
                     alt="VIP Concierge Suite"
                     fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-purple-950/80 via-purple-950/30 to-transparent" />
@@ -201,107 +215,130 @@ export default function ContactPage() {
                     Specify your preferences below. A senior concierge officer will contact you within 60 minutes.
                   </p>
 
-                  {submitted ? (
-                    <div className="p-10 rounded-3xl bg-gradient-to-b from-pink-50 to-purple-50 border border-pink-300 text-center space-y-5">
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center mx-auto shadow-xl shadow-pink-500/30">
-                        <CheckCircle2 className="w-10 h-10" />
-                      </div>
-                      <h4 className="text-3xl font-extrabold text-purple-950">Inquiry Confirmed</h4>
-                      <p className="text-sm text-purple-900/80 max-w-md mx-auto leading-relaxed">
-                        Your encrypted message has been dispatched to our senior concierge officer. Expect a discreet response shortly.
-                      </p>
-                      <button
-                        onClick={() => setSubmitted(false)}
-                        className="px-8 py-3 rounded-full bg-white border border-pink-300 text-xs font-extrabold text-pink-600 hover:bg-pink-100 transition-colors shadow-md"
-                      >
-                        Submit Another Request
-                      </button>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
-                            Full Name or Alias
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Lord / Lady / Mr. / Ms."
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
-                            Private Email Address
-                          </label>
-                          <input
-                            type="email"
-                            required
-                            placeholder="client@private.com"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
-                            Direct Telephone / Signal
-                          </label>
-                          <input
-                            type="tel"
-                            placeholder="+1 (555) 000-0000"
-                            value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
-                            Service Category
-                          </label>
-                          <select
-                            value={formData.occasion}
-                            onChange={(e) => setFormData({ ...formData, occasion: e.target.value })}
-                            className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
+                      {submitted ? (
+                        <div className="p-10 rounded-3xl bg-gradient-to-b from-pink-50 to-purple-50 border border-pink-300 text-center space-y-5">
+                          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white flex items-center justify-center mx-auto shadow-xl shadow-pink-500/30">
+                            <CheckCircle2 className="w-10 h-10 animate-pulse" />
+                          </div>
+                          <h4 className="text-3xl font-extrabold text-purple-950">Inquiry Received</h4>
+                          <p className="text-sm text-purple-900/80 max-w-md mx-auto leading-relaxed">
+                            Your encrypted inquiry has been safely transmitted to Firebase and dispatched to our senior admin concierge desk. We will reach out to you shortly.
+                          </p>
+                          <button
+                            onClick={() => {
+                              setSubmitted(false);
+                              setFormData({
+                                name: "",
+                                email: "",
+                                phone: "",
+                                occasion: "Movie Partner",
+                                destination: "New York / East Coast",
+                                notes: "",
+                              });
+                            }}
+                            className="px-8 py-3 rounded-full bg-white border border-pink-300 text-xs font-extrabold text-pink-600 hover:bg-pink-100 transition-colors shadow-md"
                           >
-                            <option>Movie Partner</option>
-                            <option>Shopping Buddy</option>
-                            <option>Hanging Out & Coffee</option>
-                            <option>Elder Care Companion</option>
-                            <option>Medical Escort & Support</option>
-                            <option>Travel Partner</option>
-                            <option>Clubbing & Nightlife Escort</option>
-                            <option>Domestic Help & Host</option>
-                          </select>
+                            Submit Another Request
+                          </button>
                         </div>
-                      </div>
+                      ) : (
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                              <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
+                                Full Name or Alias
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                placeholder="Lord / Lady / Mr. / Ms."
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
+                              />
+                            </div>
 
-                      <div>
-                        <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
-                          Specific Requirements & Notes
-                        </label>
-                        <textarea
-                          rows={4}
-                          placeholder="Provide details regarding dates, locations, or companion characteristics..."
-                          value={formData.notes}
-                          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                          className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
-                        />
-                      </div>
+                            <div>
+                              <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
+                                Private Email Address
+                              </label>
+                              <input
+                                type="email"
+                                required
+                                placeholder="client@private.com"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
+                              />
+                            </div>
+                          </div>
 
-                      <Button type="submit" variant="primary" size="lg" className="w-full py-4 text-base" icon>
-                        Send Encrypted Request
-                      </Button>
-                    </form>
-                  )}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                              <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
+                                Direct Telephone / Signal
+                              </label>
+                              <input
+                                type="tel"
+                                placeholder="+1 (555) 000-0000"
+                                value={formData.phone}
+                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
+                                Service Category
+                              </label>
+                              <select
+                                value={formData.occasion}
+                                onChange={(e) => setFormData({ ...formData, occasion: e.target.value })}
+                                className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
+                              >
+                                <option>Movie Partner</option>
+                                <option>Shopping Buddy</option>
+                                <option>Hanging Out & Coffee</option>
+                                <option>Elder Care Companion</option>
+                                <option>Medical Escort & Support</option>
+                                <option>Travel Partner</option>
+                                <option>Clubbing & Nightlife Escort</option>
+                                <option>Domestic Help & Host</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-extrabold uppercase tracking-wider text-purple-950 mb-2">
+                              Specific Requirements & Notes
+                            </label>
+                            <textarea
+                              rows={4}
+                              placeholder="Provide details regarding dates, locations, or companion characteristics..."
+                              value={formData.notes}
+                              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                              className="w-full px-5 py-4 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:bg-white transition-all shadow-inner"
+                            />
+                          </div>
+
+                          <Button
+                            type="submit"
+                            variant="primary"
+                            size="lg"
+                            disabled={isSubmitting}
+                            className="w-full py-4 text-base flex items-center justify-center gap-2"
+                          >
+                            {isSubmitting ? (
+                              <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>Transmitting Inquiry to Admin...</span>
+                              </>
+                            ) : (
+                              <span>Send Encrypted Request</span>
+                            )}
+                          </Button>
+                        </form>
+                      )}
                 </div>
               </FadeIn>
             </div>

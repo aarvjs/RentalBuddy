@@ -46,7 +46,7 @@ function RegisterForm() {
 
   // Customer Specific Fields
   const [gender, setGender] = useState("");
-  const [preference, setPreference] = useState<"Find a Partner" | "Become a Partner" | "Both">("Find a Partner");
+  const [preference, setPreference] = useState<"Find a Partner" | "Both">("Find a Partner");
 
   // Provider Specific Fields
   const [state, setState] = useState("");
@@ -363,7 +363,6 @@ function RegisterForm() {
                 className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-semibold"
               >
                 <option value="Find a Partner">Find a Partner</option>
-                <option value="Become a Partner">Become a Partner</option>
                 <option value="Both">Both</option>
               </select>
             </div>
