@@ -38,6 +38,7 @@ export function WhyChooseUsSection() {
                     src="/images/security/security_verification_pillar.jpg"
                     alt="Triple-Layer Companion Security Verification"
                     fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     className="object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-purple-950/60 via-transparent to-transparent" />
@@ -90,6 +91,7 @@ export function WhyChooseUsSection() {
                     src="/images/security/confidentiality_encryption_pillar.jpg"
                     alt="Total Confidentiality & Swiss Privacy Protocol"
                     fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     className="object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-purple-950/60 via-transparent to-transparent" />
@@ -145,6 +147,7 @@ export function WhyChooseUsSection() {
                         src={pillar.imageUrl}
                         alt={pillar.title}
                         fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-purple-950/40 via-transparent to-transparent" />

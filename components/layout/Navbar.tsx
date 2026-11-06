@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Sparkles,
   Menu,
@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   Briefcase,
   ChevronDown,
+  AlertCircle,
 } from "lucide-react";
 import { NAV_LINKS, SITE_CONFIG } from "@/lib/constants";
 import { Button } from "@/components/buttons/Buttons";
@@ -26,10 +27,12 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [providerNoticeOpen, setProviderNoticeOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
 
-  const { user, profile, logout } = useAuth();
+  const { user, profile, logout, openAuthModal } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -62,8 +65,58 @@ export function Navbar() {
   const displayName = profile?.fullName || user?.displayName || user?.email?.split("@")[0] || "Member";
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
+  const handleBookServiceClick = () => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    if (profile?.userType === "provider") {
+      setProviderNoticeOpen(true);
+      return;
+    }
+    router.push("/services");
+  };
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 pt-4 pb-2 pointer-events-none transition-all duration-500">
+    <>
+      {/* Provider Account Notice Modal */}
+      <AnimatePresence>
+        {providerNoticeOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-purple-950/60 backdrop-blur-sm pointer-events-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-md w-full p-6 sm:p-7 rounded-3xl bg-white border border-pink-200 shadow-2xl text-center space-y-4"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-extrabold text-purple-950">Provider Account Notice</h3>
+              <p className="text-xs text-purple-900/70 leading-relaxed">
+                You are currently logged in with a Service Provider account. Direct companion booking is available for Customer or Both accounts.
+              </p>
+              <div className="flex flex-col gap-2 pt-2">
+                <Link
+                  href="/service-provider/dashboard"
+                  onClick={() => setProviderNoticeOpen(false)}
+                  className="w-full py-2.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-xs shadow-sm hover:opacity-95 text-center"
+                >
+                  Go to Provider Portal
+                </Link>
+                <button
+                  onClick={() => setProviderNoticeOpen(false)}
+                  className="w-full py-2.5 rounded-full bg-pink-50 border border-pink-200 text-purple-950 font-extrabold text-xs hover:bg-pink-100"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <header className="fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 pt-4 pb-2 pointer-events-none transition-all duration-500">
       <div
         className={cn(
           "max-w-7xl mx-auto transition-all duration-500 pointer-events-auto rounded-full",
@@ -79,7 +132,7 @@ export function Navbar() {
               <Sparkles className="w-5 h-5 animate-pulse" />
             </div>
             <div className="flex flex-col">
-              <span className="font-serif font-extrabold text-xl tracking-tight bg-gradient-to-r from-purple-950 via-pink-900 to-purple-900 bg-clip-text text-transparent">
+              <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-purple-950 via-pink-900 to-purple-900 bg-clip-text text-transparent">
                 {SITE_CONFIG.name}
               </span>
               <span className="text-[9px] uppercase tracking-widest text-pink-600 font-bold -mt-1">
@@ -121,6 +174,9 @@ export function Navbar() {
             {user ? (
               /* Logged In User Profile Avatar & Dropdown */
               <div className="flex items-center gap-3">
+                <Button onClick={handleBookServiceClick} size="sm" variant="primary" icon>
+                  Book Service
+                </Button>
 
                 <div className="relative" ref={dropdownRef}>
                   <button
@@ -221,17 +277,17 @@ export function Navbar() {
               </div>
             ) : (
               /* Before Login CTAs */
-              <>
-                <Link
-                  href="/login"
-                  className="text-sm font-semibold text-purple-950/90 hover:text-pink-600 px-4 py-2 transition-colors"
-                >
-                  Sign In
-                </Link>
-                <Button href="/register" size="sm" variant="primary" icon>
-                  Join / Register
+              <div className="flex items-center gap-2.5">
+                <Button onClick={handleBookServiceClick} size="sm" variant="primary" icon>
+                  Book Service
                 </Button>
-              </>
+                <Link
+                  href="/register?type=provider"
+                  className="px-4 py-2 rounded-full bg-[#701A39] hover:bg-[#831843] text-white font-extrabold text-xs shadow-xs hover:shadow-sm transition-all border border-[#831843]/60"
+                >
+                  Join as a Service Provider
+                </Link>
+              </div>
             )}
           </div>
 
@@ -293,6 +349,15 @@ export function Navbar() {
                       <p className="text-xs text-pink-600 truncate">{user.email}</p>
                     </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false);
+                      handleBookServiceClick();
+                    }}
+                    className="w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <Sparkles className="w-4 h-4" /> Book Service
+                  </button>
                   <Link
                     href="/dashboard"
                     className="py-2.5 px-4 rounded-full bg-pink-50 text-xs font-bold text-purple-950 flex items-center gap-2"
@@ -337,12 +402,16 @@ export function Navbar() {
                 </>
               ) : (
                 <>
-                  <Button href="/login" variant="secondary" className="w-full">
-                    Sign In
+                  <Button onClick={() => { setMobileOpen(false); handleBookServiceClick(); }} variant="primary" className="w-full" icon>
+                    Book Service
                   </Button>
-                  <Button href="/register" variant="primary" className="w-full" icon>
-                    Join / Register
-                  </Button>
+                  <Link
+                    href="/register?type=provider"
+                    onClick={() => setMobileOpen(false)}
+                    className="w-full py-3 px-4 rounded-full bg-[#701A39] hover:bg-[#831843] text-white font-extrabold text-xs text-center shadow-xs transition-all border border-[#831843]/60 block"
+                  >
+                    Join as a Service Provider
+                  </Link>
                 </>
               )}
             </div>
@@ -350,5 +419,6 @@ export function Navbar() {
         )}
       </AnimatePresence>
     </header>
+    </>
   );
 }

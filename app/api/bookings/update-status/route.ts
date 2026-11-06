@@ -1,5 +1,11 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
-import { getFirestoreDocServer, setFirestoreDocServer, adminAuth } from "@/lib/firebase-admin";
+import {
+  getFirestoreDocServer,
+  setFirestoreDocServer,
+  verifyServerIdToken,
+} from "@/lib/firebase-admin";
 
 export async function POST(request: Request) {
   try {
@@ -9,13 +15,9 @@ export async function POST(request: Request) {
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
       idToken = authHeader.substring(7);
-      if (adminAuth) {
-        try {
-          const decoded = await adminAuth.verifyIdToken(idToken);
-          verifiedUid = decoded.uid;
-        } catch (err) {
-          console.warn("IdToken verification notice:", err);
-        }
+      const verified = await verifyServerIdToken(idToken);
+      if (verified) {
+        verifiedUid = verified.uid;
       }
     }
 

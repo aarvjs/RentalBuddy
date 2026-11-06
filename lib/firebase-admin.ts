@@ -11,8 +11,20 @@ const apiKey =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
   "AIzaSyAl_qOyJ3GlbUWwv9l83Kb_1QG8GJ7_YO0";
 
+function parsePrivateKey(key?: string): string | undefined {
+  if (!key) return undefined;
+  let cleaned = key.trim();
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  return cleaned.replace(/\\n/g, "\n");
+}
+
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+const privateKey = parsePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
 
 let adminApp: any = null;
 let adminDbInstance: any = null;
@@ -20,45 +32,79 @@ let adminAuthInstance: any = null;
 
 const hasServiceAccount = Boolean(clientEmail && privateKey);
 
-try {
-  const existingApps = getApps();
-  if (existingApps.length > 0) {
-    for (const app of existingApps) {
-      if (app.options.projectId !== projectId) {
-        try {
-          deleteApp(app);
-        } catch (e) {}
-      }
-    }
-  }
+if (hasServiceAccount) {
+  try {
+    const existingApps = getApps();
+    const foundApp = existingApps.find((app) => app.name === "rentbuddyAdminApp");
 
-  if (!getApps().length) {
-    if (hasServiceAccount) {
+    if (foundApp) {
+      adminApp = foundApp;
+    } else {
       adminApp = initializeApp(
         {
           credential: cert({
             projectId,
-            clientEmail,
+            clientEmail: clientEmail!,
             privateKey: privateKey!,
           }),
         },
         "rentbuddyAdminApp"
       );
-    } else {
-      adminApp = initializeApp({ projectId }, "rentbuddyAdminApp");
     }
-  } else {
-    adminApp = getApps()[0];
-  }
 
-  adminDbInstance = getFirestore(adminApp);
-  adminAuthInstance = getAuth(adminApp);
-} catch (e) {
-  console.warn("Firebase Admin SDK init notice:", e);
+    adminDbInstance = getFirestore(adminApp);
+    adminAuthInstance = getAuth(adminApp);
+  } catch (e: any) {
+    console.warn("Firebase Admin SDK initialization notice:", e?.message || e);
+  }
 }
 
 export const adminDb = adminDbInstance;
 export const adminAuth = adminAuthInstance;
+
+/**
+ * Server-Side Secure ID Token Verification Helper.
+ * Tries Firebase Admin SDK first if credentials are configured.
+ * Otherwise verifies via Google Identity Toolkit REST API without requiring service account keys.
+ */
+export async function verifyServerIdToken(
+  idToken: string
+): Promise<{ uid: string; email?: string } | null> {
+  if (!idToken || typeof idToken !== "string") return null;
+
+  if (adminAuthInstance) {
+    try {
+      const decoded = await adminAuthInstance.verifyIdToken(idToken);
+      return { uid: decoded.uid, email: decoded.email };
+    } catch (err: any) {
+      console.warn("Admin SDK verifyIdToken notice:", err?.code || err?.message);
+    }
+  }
+
+  // Fallback: Verify ID token securely via Google Identity Toolkit REST API
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      }
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      const user = data.users?.[0];
+      if (user?.localId) {
+        return { uid: user.localId, email: user.email };
+      }
+    }
+  } catch (err: any) {
+    console.warn("Identity Toolkit token lookup notice:", err?.message);
+  }
+
+  return null;
+}
 
 // Helper to convert JS object to Firestore REST API fields
 export function encodeFirestoreFields(obj: Record<string, any>): Record<string, any> {
@@ -136,7 +182,7 @@ export async function setFirestoreDocServer(
     .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
     .join("&");
   const maskParam = fieldMask ? `&${fieldMask}` : "";
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${docId}?key=${apiKey}${maskParam}`;
+  const patchUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${docId}?key=${apiKey}${maskParam}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -148,29 +194,111 @@ export async function setFirestoreDocServer(
     fields: encodeFirestoreFields(data),
   };
 
-  let res = await fetch(url, {
+  const res = await fetch(patchUrl, {
     method: "PATCH",
     headers,
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok && idToken) {
-    // Retry without idToken header if client token hit rule restriction
-    const noAuthHeaders = { "Content-Type": "application/json" };
-    const retryRes = await fetch(url, {
-      method: "PATCH",
-      headers: noAuthHeaders,
-      body: JSON.stringify(payload),
-    });
-    if (retryRes.ok) {
-      return;
+  if (res.ok) {
+    return;
+  }
+
+  // If PATCH failed (e.g., document doesn't exist yet), attempt POST with ?documentId=
+  const postUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?documentId=${docId}&key=${apiKey}`;
+  const postRes = await fetch(postUrl, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (postRes.ok) {
+    return;
+  }
+
+  const errText = await res.text();
+  throw new Error(`Firestore REST write error (${res.status}): ${errText}`);
+}
+
+/**
+ * Server-Side Secure Firestore Query Helper.
+ * Checks for existing bookings or docs.
+ */
+export async function queryBookingsServer(
+  providerId: string,
+  date: string
+): Promise<any[]> {
+  if (hasServiceAccount && adminDb) {
+    try {
+      const snap = await adminDb
+        .collection("bookings")
+        .where("providerId", "==", providerId)
+        .where("date", "==", date)
+        .get();
+      const list: any[] = [];
+      snap.forEach((d: any) => list.push({ id: d.id, ...d.data() }));
+      return list;
+    } catch (e: any) {
+      console.warn("adminDb queryBookingsServer error:", e?.message);
     }
   }
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Firestore REST write error (${res.status}): ${errText}`);
+  // REST runQuery fallback
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
+    const queryPayload = {
+      structuredQuery: {
+        from: [{ collectionId: "bookings" }],
+        where: {
+          compositeFilter: {
+            op: "AND",
+            filters: [
+              {
+                fieldFilter: {
+                  field: { fieldPath: "providerId" },
+                  op: "EQUAL",
+                  value: { stringValue: providerId },
+                },
+              },
+              {
+                fieldFilter: {
+                  field: { fieldPath: "date" },
+                  op: "EQUAL",
+                  value: { stringValue: date },
+                },
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(queryPayload),
+    });
+
+    if (res.ok) {
+      const results = await res.json();
+      const list: any[] = [];
+      if (Array.isArray(results)) {
+        for (const item of results) {
+          if (item.document) {
+            const data = decodeFirestoreDoc(item.document);
+            if (data) {
+              list.push({ id: item.document.name?.split("/").pop(), ...data });
+            }
+          }
+        }
+      }
+      return list;
+    }
+  } catch (err: any) {
+    console.warn("queryBookingsServer REST error:", err?.message);
   }
+
+  return [];
 }
 
 /**
@@ -201,7 +329,7 @@ export async function getFirestoreDocServer(
     headers["Authorization"] = `Bearer ${idToken}`;
   }
 
-  let res = await fetch(url, {
+  const res = await fetch(url, {
     method: "GET",
     headers,
   });

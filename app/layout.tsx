@@ -1,8 +1,16 @@
 import type { Metadata, Viewport } from "next";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import { SITE_CONFIG } from "@/lib/constants";
 import { AuthProvider } from "@/lib/auth-context";
 import { PublicLayoutWrapper } from "@/components/layout/PublicLayoutWrapper";
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-manrope",
+  display: "swap",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -40,8 +48,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased scroll-smooth">
-      <body className="min-h-full flex flex-col bg-[#FFF9FA] text-[#2E1065]">
+    <html lang="en" className={`h-full antialiased scroll-smooth ${manrope.variable}`}>
+      <body className={`min-h-full flex flex-col bg-[#FFF9FA] text-[#2E1065] ${manrope.className}`}>
         <AuthProvider>
           <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
         </AuthProvider>

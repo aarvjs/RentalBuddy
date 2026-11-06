@@ -1,26 +1,71 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SERVICES } from "@/lib/constants";
 import { ServiceCard } from "@/components/cards/Cards";
 import { FadeIn } from "@/components/animations/Animations";
 import { Sparkles, ChevronLeft, ChevronRight, LayoutGrid, Sliders } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getMasterServices, MasterServiceItem } from "@/lib/service-provider/provider-services";
+
+interface HomeServiceCardItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  icon: string;
+  imageUrl?: string;
+  gradient?: string;
+}
 
 export function ServicesSection() {
   const [viewMode, setViewMode] = useState<"grid" | "slider">("slider");
   const [activeSlide, setActiveSlide] = useState(0);
+  const [serviceList, setServiceList] = useState<HomeServiceCardItem[]>(SERVICES);
+
+  useEffect(() => {
+    async function loadRealServices() {
+      try {
+        const fetched = await getMasterServices();
+        if (fetched && fetched.length > 0) {
+          // Merge icon and display details
+          const merged = fetched.map((s) => {
+            const staticMatch = SERVICES.find(
+              (cs) =>
+                cs.id === s.id ||
+                cs.title.toLowerCase() === s.serviceName.toLowerCase()
+            );
+            return {
+              id: s.id,
+              title: s.serviceName,
+              subtitle: staticMatch?.subtitle || s.category || "Tailored Experience",
+              description: s.description,
+              icon: staticMatch?.icon || "Sparkles",
+              imageUrl: s.imageUrl || staticMatch?.imageUrl,
+              gradient: staticMatch?.gradient || "from-pink-500/10 via-purple-500/10 to-rose-500/10",
+            };
+          });
+          setServiceList(merged);
+        }
+      } catch (err) {
+        console.warn("Could not load real master services for home page:", err);
+      }
+    }
+    loadRealServices();
+  }, []);
+
+  const totalItems = serviceList.length || SERVICES.length;
 
   const nextSlide = () => {
-    setActiveSlide((prev) => (prev + 1) % SERVICES.length);
+    setActiveSlide((prev) => (prev + 1) % totalItems);
   };
 
   const prevSlide = () => {
-    setActiveSlide((prev) => (prev - 1 + SERVICES.length) % SERVICES.length);
+    setActiveSlide((prev) => (prev - 1 + totalItems) % totalItems);
   };
 
   return (
-    <section className="py-24 bg-white relative overflow-hidden">
+    <section id="services" className="py-24 bg-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 sm:px-8">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
@@ -87,9 +132,10 @@ export function ServicesSection() {
         {/* Content Display: Slider vs Grid */}
         {viewMode === "grid" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {SERVICES.map((service) => (
+            {serviceList.map((service) => (
               <ServiceCard
                 key={service.id}
+                id={service.id}
                 title={service.title}
                 subtitle={service.subtitle}
                 description={service.description}
@@ -110,12 +156,13 @@ export function ServicesSection() {
                 transition={{ duration: 0.4 }}
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
               >
-                {Array.from({ length: 4 }).map((_, offset) => {
-                  const itemIndex = (activeSlide + offset) % SERVICES.length;
-                  const service = SERVICES[itemIndex];
+                {Array.from({ length: Math.min(4, totalItems) }).map((_, offset) => {
+                  const itemIndex = (activeSlide + offset) % totalItems;
+                  const service = serviceList[itemIndex];
                   return (
                     <ServiceCard
                       key={service.id}
+                      id={service.id}
                       title={service.title}
                       subtitle={service.subtitle}
                       description={service.description}
@@ -130,7 +177,7 @@ export function ServicesSection() {
 
             {/* Slider Dots */}
             <div className="flex items-center justify-center gap-2 mt-10">
-              {SERVICES.map((_, idx) => (
+              {serviceList.map((_, idx) => (
                 <button
                   key={idx}
                   onClick={() => setActiveSlide(idx)}

@@ -24,7 +24,6 @@ import {
   Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/buttons/Buttons";
 import { useAuth } from "@/lib/auth-context";
 
 const iconMap: Record<string, React.ElementType> = {
@@ -44,6 +43,7 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 export interface ServiceCardProps {
+  id?: string;
   title: string;
   subtitle: string;
   description: string;
@@ -54,6 +54,7 @@ export interface ServiceCardProps {
 }
 
 export function ServiceCard({
+  id,
   title,
   subtitle,
   description,
@@ -61,23 +62,29 @@ export function ServiceCard({
   imageUrl,
 }: ServiceCardProps) {
   const IconComponent = iconMap[iconName] || Sparkles;
-  const { user, openAuthModal } = useAuth();
   const router = useRouter();
 
+  const serviceSlug =
+    id ||
+    title
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+  const serviceHref = `/services/${serviceSlug}`;
+
   const handleAction = (e: React.MouseEvent) => {
-    if (!user) {
-      e.preventDefault();
-      openAuthModal(
-        `Please sign in or create an account to book ${title}.`,
-        "/contact"
-      );
-    } else {
-      router.push("/contact");
-    }
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(serviceHref);
   };
 
   return (
-    <div className="group relative rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-100/80 shadow-xl shadow-purple-500/5 hover:shadow-2xl hover:shadow-pink-500/15 transition-all duration-500 hover:-translate-y-1.5 overflow-hidden flex flex-col justify-between h-full">
+    <Link
+      href={serviceHref}
+      className="group relative rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-100/80 shadow-xl shadow-purple-500/5 hover:shadow-2xl hover:shadow-pink-500/15 transition-all duration-500 hover:-translate-y-1.5 overflow-hidden flex flex-col justify-between h-full cursor-pointer"
+    >
       {/* Top Lifestyle Image Header */}
       {imageUrl && (
         <div className="relative h-44 w-full overflow-hidden shrink-0">
@@ -85,6 +92,7 @@ export function ServiceCard({
             src={imageUrl}
             alt={title}
             fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover transition-transform duration-700 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-purple-950/40 via-transparent to-transparent" />
@@ -123,7 +131,7 @@ export function ServiceCard({
           <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
         </button>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -247,14 +255,14 @@ export function TestimonialCard({
           ))}
         </div>
 
-        <p className="text-purple-950 font-serif italic text-lg leading-relaxed mb-6">
+        <p className="text-purple-950 italic text-lg leading-relaxed mb-6 font-medium">
           &quot;{quote}&quot;
         </p>
       </div>
 
       <div className="flex items-center gap-4 pt-6 border-t border-pink-100/60">
         <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-pink-300 shrink-0">
-          <Image src={avatarUrl} alt={name} fill className="object-cover" />
+          <Image src={avatarUrl} alt={name} fill sizes="48px" className="object-cover" />
         </div>
         <div>
           <h4 className="font-bold text-purple-950 text-base">{name}</h4>
@@ -296,6 +304,7 @@ export function StoryCard({
           src={imageUrl}
           alt={title}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover transition-transform duration-700 group-hover:scale-110"
         />
         <div className="absolute top-4 left-4 px-3.5 py-1 rounded-full bg-white/85 backdrop-blur-md border border-pink-200/50 text-xs font-bold text-pink-600 uppercase tracking-wider">
@@ -326,7 +335,7 @@ export function StoryCard({
         <div className="flex items-center justify-between pt-4 border-t border-pink-100/60">
           <div className="flex items-center gap-2.5">
             <div className="relative w-8 h-8 rounded-full overflow-hidden border border-pink-200">
-              <Image src={authorAvatar} alt={authorName} fill className="object-cover" />
+              <Image src={authorAvatar} alt={authorName} fill sizes="32px" className="object-cover" />
             </div>
             <span className="text-xs font-semibold text-purple-950">{authorName}</span>
           </div>
@@ -357,6 +366,7 @@ export function TeamCard({
           src={imageUrl}
           alt={name}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-purple-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

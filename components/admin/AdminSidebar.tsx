@@ -59,7 +59,7 @@ export function AdminSidebar({ admin, onLogout, isOpen = true, onClose }: AdminS
               <Shield className="w-5 h-5" />
             </div>
             <div className="flex flex-col">
-              <span className="font-serif font-extrabold text-lg text-purple-950">
+              <span className="font-extrabold text-lg text-purple-950 tracking-tight">
                 RentasBuddy
               </span>
               <span className="text-[10px] uppercase font-bold text-purple-600 tracking-wider -mt-1">

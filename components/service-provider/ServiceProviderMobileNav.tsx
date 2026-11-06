@@ -62,7 +62,7 @@ export function ServiceProviderMobileNav({
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white shadow-md">
                 <Sparkles className="w-4 h-4" />
               </div>
-              <span className="font-serif font-extrabold text-base text-purple-950">
+              <span className="font-extrabold text-base text-purple-950 tracking-tight">
                 Provider Portal
               </span>
             </div>

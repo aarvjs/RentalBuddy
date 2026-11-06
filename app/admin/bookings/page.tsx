@@ -108,12 +108,12 @@ export default function AdminBookingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-100/60">
-              {filteredBookings.map((b) => {
+              {filteredBookings.map((b, index) => {
                 const displayStatus = (b.status || "upcoming").toLowerCase();
                 const isConnected = b.connectionStatus === "connected";
 
                 return (
-                  <tr key={b.id || Math.random().toString()} className="hover:bg-purple-50/30 transition-colors">
+                  <tr key={b.id || `booking-${index}`} className="hover:bg-purple-50/30 transition-colors">
                     <td className="p-4 font-mono font-bold text-purple-950">{b.id ? b.id.slice(0, 12) : "N/A"}</td>
                     <td className="p-4 font-bold">{b.customerName || "Member"}</td>
                     <td className="p-4 font-extrabold text-pink-600">{b.providerName || "Partner"}</td>

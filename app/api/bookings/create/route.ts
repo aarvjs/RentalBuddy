@@ -1,27 +1,43 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { setFirestoreDocServer, getFirestoreDocServer, adminAuth } from "@/lib/firebase-admin";
+import {
+  setFirestoreDocServer,
+  getFirestoreDocServer,
+  verifyServerIdToken,
+  queryBookingsServer,
+} from "@/lib/firebase-admin";
+
+function parseTimeString(timeStr?: string): number {
+  if (!timeStr) return 0;
+  const cleanStr = timeStr.split("–")[0].split("-")[0].trim();
+  const match = cleanStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  if (!match) return 0;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const ampm = match[3] ? match[3].toUpperCase() : "AM";
+  if (ampm === "PM" && hours < 12) hours += 12;
+  if (ampm === "AM" && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
 
 export async function POST(request: Request) {
   try {
-    // 1. Extract Bearer Token if present
+    // 1. Extract and verify Bearer Token
     const authHeader = request.headers.get("Authorization");
     let idToken = "";
     let verifiedUid = "";
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
       idToken = authHeader.substring(7);
-      if (adminAuth) {
-        try {
-          const decoded = await adminAuth.verifyIdToken(idToken);
-          verifiedUid = decoded.uid;
-        } catch (err) {
-          console.warn("IdToken verification notice:", err);
-        }
+      const verified = await verifyServerIdToken(idToken);
+      if (verified) {
+        verifiedUid = verified.uid;
       }
     }
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const {
       userId,
       customerName = "Valued Member",
@@ -51,6 +67,36 @@ export async function POST(request: Request) {
         { error: "Missing required booking details or user authentication." },
         { status: 400 }
       );
+    }
+
+    // 2. Atomic Server-Side Check: Check for overlapping bookings
+    if (providerId && date && time) {
+      try {
+        const existingBookings = await queryBookingsServer(providerId, date);
+        const reqStart = parseTimeString(time);
+        const reqDurationHrs = parseInt(duration) || 1;
+        const reqEnd = reqStart + reqDurationHrs * 60;
+
+        const hasConflict = existingBookings.some((b: any) => {
+          if (b.status === "cancelled") return false;
+          const bStart = parseTimeString(b.time);
+          const bDuration = parseInt(b.duration) || 1;
+          const bEnd = bStart + bDuration * 60;
+          return reqStart < bEnd && reqEnd > bStart;
+        });
+
+        if (hasConflict) {
+          return NextResponse.json(
+            {
+              error:
+                "This Partner is already booked during the selected time. Please choose another time slot or date.",
+            },
+            { status: 409 }
+          );
+        }
+      } catch (err) {
+        console.warn("Could not verify overlapping bookings server-side:", err);
+      }
     }
 
     // 2. Fetch provider contact number securely using server helper

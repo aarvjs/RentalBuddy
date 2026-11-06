@@ -24,6 +24,7 @@ export function PageHero({ badge, title, subtitle, breadcrumb, bgImageUrl, child
           src={bgImageUrl}
           alt={title}
           fill
+          sizes="100vw"
           priority
           className="object-cover object-center scale-105 transition-transform duration-1000"
         />

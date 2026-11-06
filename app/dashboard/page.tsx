@@ -507,7 +507,19 @@ export default function DashboardPage() {
         }),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          `Server response error (${response.status}): ${
+            responseText.startsWith("<")
+              ? "Server returned an error page. Please try again or contact support."
+              : responseText.slice(0, 100)
+          }`
+        );
+      }
       if (!response.ok) {
         throw new Error(data.error || "Failed to complete purchase.");
       }
@@ -1195,6 +1207,7 @@ export default function DashboardPage() {
                               src={service.imageUrl}
                               alt={service.serviceName}
                               fill
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                               className="object-cover"
                             />
                             <span className="absolute top-3 right-3 px-3 py-1 rounded-full bg-white/90 backdrop-blur-md text-[10px] font-extrabold text-purple-950 border border-pink-200 shadow-sm">
@@ -1412,7 +1425,7 @@ export default function DashboardPage() {
                   <StaggerItem key={b.id}>
                     <div className="p-6 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-200/80 shadow-md hover:border-pink-300 transition-all grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
                       <div className="sm:col-span-3 relative h-32 w-full rounded-2xl overflow-hidden shrink-0">
-                        <Image src={b.serviceImage} alt={b.serviceName} fill className="object-cover" />
+                        <Image src={b.serviceImage} alt={b.serviceName} fill sizes="(max-width: 640px) 100vw, 25vw" className="object-cover" />
                       </div>
 
                       <div className="sm:col-span-5 space-y-1.5">

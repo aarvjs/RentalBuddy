@@ -15,7 +15,7 @@ export function AuthModal() {
 
   const targetRedirect = returnUrl || currentPath;
   const loginHref = `/login?redirect=${encodeURIComponent(targetRedirect)}`;
-  const registerHref = `/register?redirect=${encodeURIComponent(targetRedirect)}`;
+  const registerHref = `/register?type=customer&redirect=${encodeURIComponent(targetRedirect)}`;
 
   return (
     <AnimatePresence>
@@ -55,15 +55,15 @@ export function AuthModal() {
           </div>
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-100/80 border border-pink-200 text-pink-600 text-xs font-extrabold uppercase tracking-wider mb-3">
-            <Sparkles className="w-3.5 h-3.5" /> Access Guard
+            <Sparkles className="w-3.5 h-3.5" /> Book Service Access
           </div>
 
           <h3 className="text-2xl font-extrabold text-purple-950 mb-2">
-            Sign in to continue
+            Sign in to book this service
           </h3>
 
           <p className="text-purple-900/75 text-sm leading-relaxed mb-8">
-            {authModalMessage}
+            {authModalMessage || "Create an account or sign in to continue with your booking."}
           </p>
 
           <div className="flex flex-col gap-3">
@@ -82,7 +82,7 @@ export function AuthModal() {
               className="w-full py-3.5 px-6 rounded-full bg-pink-50 border border-pink-200 text-purple-950 font-extrabold text-sm hover:bg-pink-100 transition-colors flex items-center justify-center gap-2"
             >
               <UserPlus className="w-4 h-4 text-pink-500" />
-              <span>Create Account</span>
+              <span>Create Customer Account</span>
             </Link>
           </div>
         </motion.div>

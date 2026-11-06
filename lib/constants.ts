@@ -10,7 +10,7 @@ export const SITE_CONFIG = {
 
 export const NAV_LINKS = [
   { name: "Home", href: "/" },
-  { name: "Why Us", href: "/why-us" },
+  { name: "Services", href: "/services" },
   { name: "About", href: "/about" },
   { name: "Pricing", href: "/pricing" },
   { name: "Contact", href: "/contact" },

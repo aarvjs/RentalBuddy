@@ -39,7 +39,7 @@ export function ServiceProviderHeader({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-serif font-extrabold text-sm text-purple-950">
+              <span className="font-extrabold text-sm text-purple-950 tracking-tight">
                 RentasBuddy
               </span>
               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 uppercase tracking-wider">

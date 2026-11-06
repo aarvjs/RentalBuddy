@@ -12,13 +12,27 @@ import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } 
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAl_qOyJ3GlbUWwv9l83Kb_1QG8GJ7_YO0",
-  authDomain: "rentbuddy-23ba6.firebaseapp.com",
-  projectId: "rentbuddy-23ba6",
-  storageBucket: "rentbuddy-23ba6.firebasestorage.app",
-  messagingSenderId: "575762553672",
-  appId: "1:575762553672:web:6d6880aea13e1d7a5df17d",
-  measurementId: "G-8W0GW0FJQB",
+  apiKey:
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
+    "AIzaSyAl_qOyJ3GlbUWwv9l83Kb_1QG8GJ7_YO0",
+  authDomain:
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ||
+    "rentbuddy-23ba6.firebaseapp.com",
+  projectId:
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
+    "rentbuddy-23ba6",
+  storageBucket:
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+    "rentbuddy-23ba6.firebasestorage.app",
+  messagingSenderId:
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ||
+    "575762553672",
+  appId:
+    process.env.NEXT_PUBLIC_FIREBASE_APP_ID ||
+    "1:575762553672:web:6d6880aea13e1d7a5df17d",
+  measurementId:
+    process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID ||
+    "G-8W0GW0FJQB",
 };
 
 // Initialize Firebase App

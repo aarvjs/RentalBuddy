@@ -163,6 +163,7 @@ export default function WhyUsPage() {
                         src={pillar.imageUrl}
                         alt={pillar.title}
                         fill
+                        sizes="(max-width: 1024px) 100vw, 50vw"
                         className="object-cover transition-transform duration-700 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-purple-950/40 via-transparent to-transparent" />

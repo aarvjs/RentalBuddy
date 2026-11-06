@@ -16,6 +16,7 @@ export function HomeHero() {
           src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=2000"
           alt="Luxury Lifestyle & Companionship"
           fill
+          sizes="100vw"
           priority
           className="object-cover object-center scale-105 transition-transform duration-1000"
         />
@@ -49,7 +50,7 @@ export function HomeHero() {
           {/* Minimal Headline */}
           <FadeIn delay={0.2}>
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-purple-950 tracking-tight leading-tight mb-4">
-              Redefining <span className="gradient-text font-serif italic font-normal">Luxury</span> & Lifestyle Companionship.
+              Redefining <span className="gradient-text italic font-bold">Luxury</span> & Lifestyle Companionship.
             </h1>
           </FadeIn>
 
@@ -79,6 +80,7 @@ export function HomeHero() {
                     src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
                     alt="Member"
                     fill
+                    sizes="28px"
                     className="object-cover"
                   />
                 </div>
@@ -87,6 +89,7 @@ export function HomeHero() {
                     src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"
                     alt="Member"
                     fill
+                    sizes="28px"
                     className="object-cover"
                   />
                 </div>

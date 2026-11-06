@@ -72,7 +72,7 @@ export function Footer() {
               <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white shadow-md">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <span className="font-serif font-extrabold text-2xl bg-gradient-to-r from-purple-950 via-pink-900 to-purple-900 bg-clip-text text-transparent">
+              <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-purple-950 via-pink-900 to-purple-900 bg-clip-text text-transparent">
                 {SITE_CONFIG.name}
               </span>
             </Link>

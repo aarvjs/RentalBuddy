@@ -3,9 +3,8 @@ import { HomeHero } from "@/components/hero/HomeHero";
 import { StatsSection } from "@/components/sections/StatsSection";
 import { ServicesSection } from "@/components/sections/ServicesSection";
 import { GallerySection } from "@/components/gallery/GallerySection";
+import { LiveCompanionsSection } from "@/components/sections/LiveCompanionsSection";
 import { VideoSection } from "@/components/sections/VideoSection";
-import { WhyChooseUsSection } from "@/components/sections/WhyChooseUsSection";
-import { TestimonialCarousel } from "@/components/slider/TestimonialCarousel";
 import { FAQAccordion } from "@/components/faq/FAQAccordion";
 import { CTASection } from "@/components/sections/CTASection";
 
@@ -16,9 +15,8 @@ export default function HomePage() {
       <StatsSection />
       <ServicesSection />
       <GallerySection />
+      <LiveCompanionsSection />
       <VideoSection />
-      <WhyChooseUsSection />
-      <TestimonialCarousel />
       <FAQAccordion />
       <CTASection />
     </>

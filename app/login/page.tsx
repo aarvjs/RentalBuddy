@@ -4,7 +4,18 @@ import React, { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, Mail, Lock, ShieldCheck, ArrowRight, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  Sparkles,
+  Mail,
+  Lock,
+  ShieldCheck,
+  ArrowRight,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Briefcase,
+  UserCheck,
+} from "lucide-react";
 import { Button } from "@/components/buttons/Buttons";
 import { SITE_CONFIG } from "@/lib/constants";
 import { loginUser, resetPassword, getUserProfile, logoutUser } from "@/lib/firebase";
@@ -13,7 +24,7 @@ import { getAdminProfile } from "@/lib/admin/admin-auth";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect");
+  const redirectUrl = searchParams.get("redirect") || "/services";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +33,7 @@ function LoginForm() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isAdminAccount, setIsAdminAccount] = useState(false);
+  const [isProviderAccount, setIsProviderAccount] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
@@ -30,6 +42,7 @@ function LoginForm() {
     setErrorMessage("");
     setSuccessMessage("");
     setIsAdminAccount(false);
+    setIsProviderAccount(false);
     setResetSent(false);
 
     if (!email.trim()) {
@@ -45,38 +58,41 @@ function LoginForm() {
       setLoading(true);
       const user = await loginUser(email.trim(), password);
 
-      // 1. Check if authenticated UID belongs to admins/{uid}
+      // Check if admin
       const adminProf = await getAdminProfile(user.uid);
       if (adminProf && adminProf.role === "admin") {
         await logoutUser();
         setIsAdminAccount(true);
-        setErrorMessage("Admin accounts must use the Admin Login.");
+        setErrorMessage("Admin accounts cannot book as customer. Please use Admin Login.");
         return;
       }
 
-      // 2. Fetch user document from Firestore users/{uid}
+      // Check user profile
       const userProf = await getUserProfile(user.uid);
-      const isProvider = userProf?.userType === "provider";
+      if (userProf?.userType === "provider") {
+        setIsProviderAccount(true);
+        setErrorMessage("You are logged in with a Service Provider account. Direct booking is for Customer accounts.");
+        return;
+      }
 
-      setSuccessMessage(`Login Successful! Redirecting to ${isProvider ? "Provider Portal" : "dashboard"}...`);
-
+      setSuccessMessage("Customer Login Successful! Redirecting to booking experience...");
       setTimeout(() => {
-        if (isProvider) {
-          router.push("/service-provider/dashboard");
-        } else {
-          router.push(redirectUrl || "/dashboard");
-        }
+        router.push(redirectUrl);
       }, 1000);
     } catch (err: any) {
       const code = err?.code || "";
-      if (code === "auth/invalid-credential" || code === "auth/user-not-found" || code === "auth/wrong-password") {
-        setErrorMessage("Invalid email or password. Please check your credentials or create a new account.");
+      if (
+        code === "auth/invalid-credential" ||
+        code === "auth/user-not-found" ||
+        code === "auth/wrong-password"
+      ) {
+        setErrorMessage("Invalid email or password. Please verify credentials or create an account.");
       } else if (code === "auth/invalid-email") {
         setErrorMessage("Please enter a valid email address.");
       } else if (code === "auth/too-many-requests") {
-        setErrorMessage("Access temporarily blocked due to multiple failed attempts. Please reset your password.");
+        setErrorMessage("Too many failed attempts. Please reset your password.");
       } else {
-        setErrorMessage("Invalid email or password. Please check your details.");
+        setErrorMessage("Invalid email or password. Please verify your details.");
       }
     } finally {
       setLoading(false);
@@ -87,7 +103,7 @@ function LoginForm() {
     setErrorMessage("");
     setSuccessMessage("");
     if (!email.trim()) {
-      setErrorMessage("Please enter your email address above to reset your password.");
+      setErrorMessage("Please enter your email address above to reset password.");
       return;
     }
 
@@ -95,15 +111,8 @@ function LoginForm() {
       setResetLoading(true);
       await resetPassword(email.trim());
       setResetSent(true);
-    } catch (err: any) {
-      const code = err?.code || "";
-      if (code === "auth/user-not-found") {
-        setErrorMessage("No account found with this email address.");
-      } else if (code === "auth/invalid-email") {
-        setErrorMessage("Please enter a valid email address.");
-      } else {
-        setErrorMessage("Unable to send password reset link. Please try again.");
-      }
+    } catch {
+      setErrorMessage("Unable to send reset email. Please verify your email address.");
     } finally {
       setResetLoading(false);
     }
@@ -112,25 +121,39 @@ function LoginForm() {
   return (
     <div className="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-center">
       <div className="mb-8">
-        <h2 className="text-3xl font-extrabold text-purple-950 mb-2">Member Sign In</h2>
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-extrabold uppercase tracking-wider mb-2">
+          <UserCheck className="w-3.5 h-3.5" />
+          Customer Access
+        </div>
+        <h2 className="text-3xl font-extrabold text-purple-950 mb-1">Customer Sign In</h2>
         <p className="text-purple-900/70 text-sm">
-          Enter your registered email and password to sign in.
+          Sign in to book verified companions and manage your reservations.
         </p>
       </div>
 
       {errorMessage && (
-        <div className="mb-6 p-4.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-3 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+        <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold space-y-2.5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
             <span>{errorMessage}</span>
           </div>
           {isAdminAccount && (
             <div>
               <Link
                 href="/admin/login"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-950 text-white font-extrabold text-xs shadow-md hover:bg-purple-900 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950 text-white font-extrabold text-[11px] shadow-sm hover:bg-purple-900"
               >
-                Go to Admin Login <ArrowRight className="w-3.5 h-3.5" />
+                Go to Admin Login <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          )}
+          {isProviderAccount && (
+            <div className="pt-1">
+              <Link
+                href="/service-provider/dashboard"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-[11px] shadow-sm"
+              >
+                Go to Provider Portal <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
           )}
@@ -138,22 +161,22 @@ function LoginForm() {
       )}
 
       {successMessage && (
-        <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2.5 shadow-md animate-bounce">
-          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+        <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-sm">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span>{successMessage}</span>
         </div>
       )}
 
       {resetSent && (
-        <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center gap-2">
+        <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center gap-2 shadow-sm">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-          <span>Password reset link sent to your email address! Please check your inbox.</span>
+          <span>Password reset link sent to your email! Please check your inbox.</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
             Email *
           </label>
           <div className="relative">
@@ -163,14 +186,14 @@ function LoginForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@example.com"
-              className="w-full pl-11 pr-5 py-3.5 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+              placeholder="customer@example.com"
+              className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
             />
           </div>
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5">
             <label className="block text-xs font-bold uppercase tracking-wider text-purple-950">
               Password *
             </label>
@@ -180,7 +203,7 @@ function LoginForm() {
               disabled={resetLoading}
               className="text-xs font-bold text-pink-600 hover:underline"
             >
-              {resetLoading ? "Sending Link..." : "Forgot Password?"}
+              {resetLoading ? "Sending..." : "Forgot Password?"}
             </button>
           </div>
           <div className="relative">
@@ -191,7 +214,7 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full pl-11 pr-5 py-3.5 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+              className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
             />
           </div>
         </div>
@@ -209,16 +232,19 @@ function LoginForm() {
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">
-              Sign In <ArrowRight className="w-4 h-4" />
+              Customer Sign In <ArrowRight className="w-4 h-4" />
             </span>
           )}
         </Button>
       </form>
 
-      <div className="mt-8 text-center text-xs text-purple-900/70">
+      <div className="mt-8 pt-6 border-t border-pink-100 text-center text-xs text-purple-900/70">
         Don&apos;t have an account?{" "}
-        <Link href={`/register${redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ""}`} className="font-bold text-pink-600 hover:underline">
-          Create Account
+        <Link
+          href={`/register${redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ""}`}
+          className="font-extrabold text-pink-600 hover:underline"
+        >
+          Create Customer Account
         </Link>
       </div>
     </div>
@@ -236,6 +262,7 @@ export default function LoginPage() {
               src="https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&q=80&w=1000"
               alt="Luxury Access"
               fill
+              sizes="(max-width: 1024px) 100vw, 40vw"
               className="object-cover"
             />
           </div>
@@ -246,18 +273,18 @@ export default function LoginPage() {
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white">
                 <Sparkles className="w-4 h-4" />
               </div>
-              <span className="font-serif font-bold text-xl">{SITE_CONFIG.name}</span>
+              <span className="font-extrabold text-xl tracking-tight">{SITE_CONFIG.name}</span>
             </Link>
 
             <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider text-pink-200">
-              Private Access
+              Customer Access
             </span>
           </div>
 
           <div className="relative z-10 my-10 space-y-4">
-            <h3 className="text-2xl font-bold font-serif">Welcome Back to RentasBuddy</h3>
+            <h3 className="text-2xl font-extrabold">Welcome Back to RentasBuddy</h3>
             <p className="text-xs text-pink-100/90 leading-relaxed">
-              Sign in to manage your bookings, account settings, or service provider console securely.
+              Sign in with your Customer account to discover verified companions, schedule experiences, and connect seamlessly.
             </p>
           </div>
 
@@ -267,8 +294,8 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Right Side: Form wrapped in Suspense */}
-        <Suspense fallback={<div className="lg:col-span-7 p-12 text-center text-purple-900/60 font-semibold">Loading login form...</div>}>
+        {/* Right Side: Form */}
+        <Suspense fallback={<div className="lg:col-span-7 p-12 text-center text-purple-900/60 font-semibold">Loading sign in...</div>}>
           <LoginForm />
         </Suspense>
       </div>

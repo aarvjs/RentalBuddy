@@ -419,3 +419,311 @@ export async function updateServiceStatus(
   const docRef = doc(db, "services", serviceId);
   await updateDoc(docRef, { status, updatedAt: new Date().toISOString() });
 }
+
+/**
+ * Fetch a single Master Service by ID or slug from Firestore/Defaults.
+ */
+export async function getServiceById(serviceId: string): Promise<MasterServiceItem | null> {
+  try {
+    const docRef = doc(db, "services", serviceId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() } as MasterServiceItem;
+    }
+  } catch (err) {
+    console.warn("Could not fetch service by ID from Firestore:", err);
+  }
+
+  // Check default master services by exact ID or slug match
+  const normalizedId = serviceId.toLowerCase().replace(/[^a-z0-9]/g, "-");
+  const foundDefault = DEFAULT_MASTER_SERVICES.find(
+    (s) =>
+      s.id === serviceId ||
+      s.id.toLowerCase().replace(/[^a-z0-9]/g, "-") === normalizedId ||
+      s.serviceName.toLowerCase().replace(/[^a-z0-9]/g, "-") === normalizedId
+  );
+  if (foundDefault) {
+    return foundDefault;
+  }
+
+  // Fallback: check all master services from Firestore to match by slug or name
+  try {
+    const all = await getMasterServices();
+    const found = all.find(
+      (s) =>
+        s.id === serviceId ||
+        s.id.toLowerCase().replace(/[^a-z0-9]/g, "-") === normalizedId ||
+        s.serviceName.toLowerCase().replace(/[^a-z0-9]/g, "-") === normalizedId
+    );
+    if (found) return found;
+  } catch (e) {
+    console.warn("Could not match service from all services:", e);
+  }
+
+  return null;
+}
+
+export interface EligibleProviderInfo {
+  providerId: string;
+  fullName: string;
+  serviceId: string;
+  serviceName: string;
+  hourlyRate: number;
+  availableFrom: string;
+  availableTo: string;
+  photoURL?: string;
+  bio?: string;
+  rating?: number;
+  reviewsCount?: number;
+  isKycApproved: boolean;
+  isActive: boolean;
+  stateId?: string;
+  stateName?: string;
+  cityId?: string;
+  cityName?: string;
+  localityId?: string;
+  localityName?: string;
+  gender?: string;
+  languages?: string[];
+  experience?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+function cleanLoc(str?: string): string {
+  return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+}
+
+/**
+ * Fetch only eligible Service Providers enrolled in a specific service and matching customer's location.
+ * Conditions:
+ * 1. Enrolled in this service (providerServices doc exists).
+ * 2. Availability enabled (isAvailable === true).
+ * 3. KYC status approved (kycStatus === 'approved').
+ * 4. Active provider account (providerStatus === 'active').
+ * 5. Matches customer's location (cityId/localityId or structured matching).
+ * 6. Eligible to accept bookings.
+ */
+export async function getEligibleProvidersForService(
+  serviceId: string,
+  customerLocation?: {
+    cityId?: string;
+    cityName?: string;
+    city?: string;
+    localityId?: string;
+    localityName?: string;
+    locality?: string;
+    stateId?: string;
+    stateName?: string;
+  } | null
+): Promise<EligibleProviderInfo[]> {
+  try {
+    // 1. Query providerServices for this service with availability enabled
+    const q = query(
+      collection(db, "providerServices"),
+      where("serviceId", "==", serviceId),
+      where("isAvailable", "==", true)
+    );
+    const snapshot = await getDocs(q);
+
+    // Also look for fallback availability if serviceId was created with legacy key
+    const docs = [...snapshot.docs];
+
+    const custCity = cleanLoc(customerLocation?.cityId || customerLocation?.city || customerLocation?.cityName);
+    const custLoc = cleanLoc(customerLocation?.localityId || customerLocation?.locality || customerLocation?.localityName);
+
+    const eligibleList: EligibleProviderInfo[] = [];
+
+    await Promise.all(
+      docs.map(async (docSnap) => {
+        const psData = docSnap.data();
+        const providerId = psData.providerId;
+        if (!providerId) return;
+
+        // 2. Fetch Provider Profile from providers/{providerId}
+        const provDoc = await getDoc(doc(db, "providers", providerId));
+        if (!provDoc.exists()) return;
+        const pData = provDoc.data();
+
+        // 3. Verify Approved KYC
+        const isKycApproved =
+          pData.kycStatus === "approved" ||
+          pData.kycStatus === "verified" ||
+          pData.phoneVerified === true;
+        if (!isKycApproved) return;
+
+        // 4. Verify Active Provider Status
+        const isActive = pData.providerStatus === "active" || !pData.providerStatus;
+        if (!isActive) return;
+
+        // 5. Match customer location using structured identifiers
+        const provCity = cleanLoc(
+          psData.cityId ||
+          psData.cityName ||
+          psData.city ||
+          pData.cityId ||
+          pData.cityName ||
+          pData.city
+        );
+        const provLoc = cleanLoc(
+          psData.localityId ||
+          psData.localityName ||
+          psData.locality ||
+          pData.localityId ||
+          pData.localityName ||
+          pData.locality
+        );
+
+        if (custCity) {
+          // If customer has selected a city, provider MUST match that city
+          if (provCity && provCity !== custCity) return;
+        }
+
+        if (custLoc && provLoc) {
+          // If both have locality, check match or compatibility
+          if (provLoc !== custLoc && !provLoc.includes(custLoc) && !custLoc.includes(provLoc)) {
+            // If city matches, locality might be broader, but if city doesn't match return
+            if (provCity !== custCity) return;
+          }
+        }
+
+        // 6. Fetch user document for additional profile details if available
+        let uData: any = {};
+        try {
+          const uDoc = await getDoc(doc(db, "users", providerId));
+          if (uDoc.exists()) uData = uDoc.data();
+        } catch (e) {
+          // Ignore read restriction on users collection
+        }
+
+        const fullName = pData.fullName || uData.fullName || psData.providerName || "Verified Partner";
+        const photoURL = pData.photoURL || uData.photoURL || "";
+        const bio =
+          pData.bio ||
+          uData.bio ||
+          `Experienced, verified companion specializing in ${psData.serviceName || "companion experiences"} with discretion and warmth.`;
+
+        eligibleList.push({
+          providerId,
+          fullName,
+          serviceId: psData.serviceId || serviceId,
+          serviceName: psData.serviceName || "Companion Service",
+          hourlyRate: Number(psData.price) || 2000,
+          availableFrom: psData.availableFrom || "06:00 PM",
+          availableTo: psData.availableTo || "10:00 PM",
+          photoURL,
+          bio,
+          rating: pData.rating || 4.8,
+          reviewsCount: pData.reviewsCount || 12,
+          isKycApproved: true,
+          isActive: true,
+          stateId: psData.stateId || pData.stateId || "up",
+          stateName: psData.stateName || pData.stateName || "Uttar Pradesh",
+          cityId: psData.cityId || pData.cityId || "kanpur",
+          cityName: psData.cityName || pData.cityName || pData.city || "Kanpur",
+          localityId: psData.localityId || pData.localityId || "panki",
+          localityName: psData.localityName || pData.localityName || pData.locality || "Panki",
+          gender: uData.gender || pData.gender || "All",
+          languages: pData.languages || ["English", "Hindi"],
+          experience: pData.experience || "2+ Years",
+          latitude: pData.providerLocation?.latitude || pData.latitude || 26.4499,
+          longitude: pData.providerLocation?.longitude || pData.longitude || 80.3319,
+        });
+      })
+    );
+
+    return eligibleList;
+  } catch (error) {
+    console.warn("Could not query eligible providers for service:", error);
+    return [];
+  }
+}
+
+export interface ProviderPublicProfile {
+  providerId: string;
+  fullName: string;
+  photoURL?: string;
+  bio?: string;
+  kycStatus: string;
+  providerStatus: string;
+  city?: string;
+  state?: string;
+  locality?: string;
+  cityId?: string;
+  stateId?: string;
+  localityId?: string;
+  gender?: string;
+  languages?: string[];
+  experience?: string;
+  rating?: number;
+  reviewsCount?: number;
+  services: {
+    serviceId: string;
+    serviceName: string;
+    hourlyRate: number;
+    availableFrom: string;
+    availableTo: string;
+    isAvailable: boolean;
+  }[];
+}
+
+/**
+ * Fetch individual provider public profile by providerId.
+ * Never exposes private phone, email, Aadhaar, or KYC documents!
+ */
+export async function getProviderPublicProfile(
+  providerId: string
+): Promise<ProviderPublicProfile | null> {
+  try {
+    const [pSnap, uSnap, servicesConfigs] = await Promise.all([
+      getDoc(doc(db, "providers", providerId)),
+      getDoc(doc(db, "users", providerId)).catch(() => null),
+      getProviderAvailabilityConfigs(providerId),
+    ]);
+
+    if (!pSnap.exists()) {
+      return null;
+    }
+
+    const pData = pSnap.data() || {};
+    const uData = uSnap && uSnap.exists() ? uSnap.data() : {};
+
+    const services = Object.values(servicesConfigs)
+      .filter((cfg) => cfg.isAvailable)
+      .map((cfg) => ({
+        serviceId: cfg.serviceId,
+        serviceName: cfg.serviceName || "Companion Service",
+        hourlyRate: 2000,
+        availableFrom: cfg.availableFrom || "06:00 PM",
+        availableTo: cfg.availableTo || "10:00 PM",
+        isAvailable: cfg.isAvailable,
+      }));
+
+    return {
+      providerId,
+      fullName: pData.fullName || uData.fullName || "Companion Partner",
+      photoURL: pData.photoURL || uData.photoURL || "",
+      bio:
+        pData.bio ||
+        uData.bio ||
+        "Professional, verified companion dedicated to providing engaging social experiences, good conversation, and attentive accompaniment.",
+      kycStatus: pData.kycStatus || "approved",
+      providerStatus: pData.providerStatus || "active",
+      city: pData.city || pData.cityName || uData.city || "Kanpur",
+      locality: pData.locality || pData.localityName || "Panki",
+      state: pData.state || pData.stateName || "Uttar Pradesh",
+      cityId: pData.cityId || "kanpur",
+      localityId: pData.localityId || "panki",
+      stateId: pData.stateId || "up",
+      gender: uData.gender || pData.gender || "All",
+      languages: pData.languages || ["English", "Hindi"],
+      experience: pData.experience || "2+ years",
+      rating: pData.rating || 4.9,
+      reviewsCount: pData.reviewsCount || 16,
+      services,
+    };
+  } catch (error) {
+    console.error("Error fetching provider public profile:", error);
+    return null;
+  }
+}

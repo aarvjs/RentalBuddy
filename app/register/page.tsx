@@ -11,29 +11,25 @@ import {
   Lock,
   User,
   Phone,
-  MapPin,
   CheckCircle2,
   ArrowRight,
   AlertCircle,
   Loader2,
   Briefcase,
+  MapPin,
   UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/buttons/Buttons";
 import { SITE_CONFIG } from "@/lib/constants";
-import { registerCustomerUser, registerProviderAccount } from "@/lib/firebase";
+import { registerProviderAccount, registerCustomerUser } from "@/lib/firebase";
 import { CelebrationParticles } from "@/components/animations/Confetti";
 
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect");
   const typeParam = searchParams.get("type");
-
-  // Account Type selector state: "customer" | "provider"
-  const [accountType, setAccountType] = useState<"customer" | "provider">(
-    typeParam === "provider" ? "provider" : "customer"
-  );
+  const isProvider = typeParam === "provider";
+  const redirectUrl = searchParams.get("redirect") || (isProvider ? "/service-provider/dashboard" : "/services");
 
   // Common Fields
   const [fullName, setFullName] = useState("");
@@ -41,7 +37,6 @@ function RegisterForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [city, setCity] = useState("");
-  const [pincode, setPincode] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
 
   // Customer Specific Fields
@@ -50,22 +45,16 @@ function RegisterForm() {
 
   // Provider Specific Fields
   const [state, setState] = useState("");
+  const [pincode, setPincode] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
 
-  useEffect(() => {
-    if (typeParam === "provider") {
-      setAccountType("provider");
-    }
-  }, [typeParam]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
-    // Validations
     if (!fullName.trim()) {
       setErrorMessage("Full Name is required.");
       return;
@@ -87,13 +76,7 @@ function RegisterForm() {
       return;
     }
 
-    if (accountType === "customer") {
-      if (!gender) {
-        setErrorMessage("Please select your gender.");
-        return;
-      }
-    } else {
-      // Provider validation
+    if (isProvider) {
       if (!mobileNumber.trim()) {
         setErrorMessage("Mobile Number is required for Service Providers.");
         return;
@@ -103,7 +86,12 @@ function RegisterForm() {
         return;
       }
       if (!pincode.trim()) {
-        setErrorMessage("Pincode is required for Service Providers.");
+        setErrorMessage("Pincode is required.");
+        return;
+      }
+    } else {
+      if (!gender) {
+        setErrorMessage("Please select your gender.");
         return;
       }
     }
@@ -111,23 +99,7 @@ function RegisterForm() {
     try {
       setLoading(true);
 
-      if (accountType === "customer") {
-        await registerCustomerUser({
-          fullName: fullName.trim(),
-          email: email.trim(),
-          password,
-          city: city.trim(),
-          gender,
-          preference,
-          mobileNumber: mobileNumber.trim(),
-          pincode: pincode.trim(),
-        });
-
-        setIsSuccess(true);
-        setTimeout(() => {
-          router.push(redirectUrl || "/dashboard");
-        }, 1500);
-      } else {
+      if (isProvider) {
         await registerProviderAccount({
           fullName: fullName.trim(),
           email: email.trim(),
@@ -137,12 +109,22 @@ function RegisterForm() {
           state: state.trim(),
           pincode: pincode.trim(),
         });
-
-        setIsSuccess(true);
-        setTimeout(() => {
-          router.push("/service-provider/dashboard");
-        }, 1500);
+      } else {
+        await registerCustomerUser({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          password,
+          city: city.trim(),
+          gender,
+          preference,
+          mobileNumber: mobileNumber.trim(),
+        });
       }
+
+      setIsSuccess(true);
+      setTimeout(() => {
+        router.push(redirectUrl);
+      }, 1500);
     } catch (err: any) {
       const code = err?.code || "";
       if (code === "auth/email-already-in-use") {
@@ -164,51 +146,21 @@ function RegisterForm() {
       {isSuccess && <CelebrationParticles />}
 
       <div className="mb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-extrabold uppercase tracking-wider mb-2">
+          {isProvider ? <Briefcase className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+          {isProvider ? "Service Provider Onboarding" : "Customer Portal Registration"}
+        </div>
         <h2 className="text-3xl font-extrabold text-purple-950 mb-1">
-          Create Account
+          {isProvider ? "Service Provider Registration" : "Create Customer Account"}
         </h2>
         <p className="text-purple-900/70 text-sm">
-          Join RentasBuddy as a Customer or Service Provider.
+          {isProvider
+            ? "Register as an accredited companion service provider to manage availability and receive client bookings."
+            : "Sign up to discover verified companions, check live availability windows, and schedule experiences."}
         </p>
       </div>
 
-      {/* ================================================== */}
-      {/* SEGMENTED CONTROL SELECTOR: CUSTOMER vs PROVIDER   */}
-      {/* ================================================== */}
-      <div className="mb-6 p-1.5 rounded-2xl bg-pink-100/70 border border-pink-200 backdrop-blur-md">
-        <label className="block text-[10px] uppercase tracking-wider font-extrabold text-pink-700 mb-1.5 px-3 pt-1">
-          Join RentasBuddy as
-        </label>
-        <div className="grid grid-cols-2 gap-1.5">
-          <button
-            type="button"
-            onClick={() => setAccountType("customer")}
-            className={`py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
-              accountType === "customer"
-                ? "bg-white text-purple-950 shadow-md shadow-pink-500/10 border border-pink-200/80"
-                : "text-purple-900/70 hover:text-purple-950 hover:bg-white/40"
-            }`}
-          >
-            <UserCheck className="w-4 h-4 text-pink-500" />
-            <span>Customer</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAccountType("provider")}
-            className={`py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
-              accountType === "provider"
-                ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md shadow-pink-500/20"
-                : "text-purple-900/70 hover:text-purple-950 hover:bg-white/40"
-            }`}
-          >
-            <Briefcase className="w-4 h-4 text-pink-200" />
-            <span>Service Provider</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Clean UI Error Banner */}
+      {/* Error Banner */}
       {errorMessage && (
         <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2.5 shadow-sm">
           <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />
@@ -223,20 +175,20 @@ function RegisterForm() {
           <div>
             <span className="block font-black text-base">🎉 Account Created Successfully!</span>
             <span className="text-xs text-pink-100 font-medium">
-              {accountType === "provider"
-                ? "Welcome to RentasBuddy Provider Portal. Redirecting to provider dashboard..."
-                : "Welcome to RentasBuddy. Redirecting to your dashboard..."}
+              {isProvider
+                ? "Welcome to the Provider Portal. Redirecting to your dashboard..."
+                : "Welcome to RentasBuddy. Redirecting to your booking experience..."}
             </span>
           </div>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Required: Full Name & Email */}
+        {/* Full Name & Email */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
-              Full Name *
+              Full Legal Name *
             </label>
             <div className="relative">
               <User className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -246,7 +198,7 @@ function RegisterForm() {
                 disabled={isSuccess}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="John Doe"
+                placeholder="Rohan Malhotra"
                 className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
               />
             </div>
@@ -254,7 +206,7 @@ function RegisterForm() {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
-              Email *
+              Email Address *
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -310,8 +262,8 @@ function RegisterForm() {
           </div>
         </div>
 
-        {/* CUSTOMER FORM FIELDS */}
-        {accountType === "customer" && (
+        {/* CUSTOMER ONLY FIELDS */}
+        {!isProvider && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -326,7 +278,7 @@ function RegisterForm() {
                     disabled={isSuccess}
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder="New York, London, Paris..."
+                    placeholder="Kanpur, Delhi, Mumbai..."
                     className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
                   />
                 </div>
@@ -352,22 +304,22 @@ function RegisterForm() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
-                I want to *
-              </label>
-              <select
-                disabled={isSuccess}
-                value={preference}
-                onChange={(e) => setPreference(e.target.value as any)}
-                className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-semibold"
-              >
-                <option value="Find a Partner">Find a Partner</option>
-                <option value="Both">Both</option>
-              </select>
-            </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
+                  I want to *
+                </label>
+                <select
+                  disabled={isSuccess}
+                  value={preference}
+                  onChange={(e) => setPreference(e.target.value as any)}
+                  className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-semibold"
+                >
+                  <option value="Find a Partner">Find a Partner</option>
+                  <option value="Both">Both (Find & Offer)</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-purple-900/70 mb-1.5">
                   Mobile Number <span className="text-[10px] text-purple-900/50">(Optional)</span>
@@ -379,35 +331,21 @@ function RegisterForm() {
                     disabled={isSuccess}
                     value={mobileNumber}
                     onChange={(e) => setMobileNumber(e.target.value)}
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="+91 98765 43210"
                     className="w-full pl-11 pr-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-purple-900/70 mb-1.5">
-                  Pincode / Postal Code <span className="text-[10px] text-purple-900/50">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  disabled={isSuccess}
-                  value={pincode}
-                  onChange={(e) => setPincode(e.target.value)}
-                  placeholder="10001"
-                  className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
-                />
               </div>
             </div>
           </>
         )}
 
-        {/* SERVICE PROVIDER FORM FIELDS */}
-        {accountType === "provider" && (
+        {/* PROVIDER ONLY FIELDS */}
+        {isProvider && (
           <>
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
-                Mobile Number *
+                Mobile Number * (Used for booking OTP verification)
               </label>
               <div className="relative">
                 <Phone className="w-4 h-4 text-pink-400 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -428,15 +366,18 @@ function RegisterForm() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-purple-950 mb-1.5">
                   City *
                 </label>
-                <input
-                  type="text"
-                  required
-                  disabled={isSuccess}
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="City"
-                  className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
-                />
+                <div className="relative">
+                  <MapPin className="w-3.5 h-3.5 text-pink-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    disabled={isSuccess}
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Kanpur"
+                    className="w-full pl-9 pr-3 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
+                  />
+                </div>
               </div>
 
               <div>
@@ -449,7 +390,7 @@ function RegisterForm() {
                   disabled={isSuccess}
                   value={state}
                   onChange={(e) => setState(e.target.value)}
-                  placeholder="State"
+                  placeholder="Uttar Pradesh"
                   className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
                 />
               </div>
@@ -464,7 +405,7 @@ function RegisterForm() {
                   disabled={isSuccess}
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value)}
-                  placeholder="6-digit Pincode"
+                  placeholder="208020"
                   className="w-full px-4 py-3 rounded-2xl bg-pink-50/40 border border-pink-200 text-purple-950 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium"
                 />
               </div>
@@ -489,19 +430,19 @@ function RegisterForm() {
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">
-              {accountType === "provider" ? "Create Service Provider Account" : "Create Customer Account"}{" "}
+              {isProvider ? "Register as Service Provider" : "Create Customer Account"}{" "}
               <ArrowRight className="w-4 h-4" />
             </span>
           )}
         </Button>
       </form>
 
-      <div className="mt-8 text-center text-xs text-purple-900/70">
-        Already have an account?{" "}
-        <Link
-          href={`/login${redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ""}`}
-          className="font-bold text-pink-600 hover:underline"
-        >
+      {/* Bottom Switch Links - Focused on Sign In only */}
+      <div className="mt-8 pt-6 border-t border-pink-100 text-center text-xs">
+        <span className="text-purple-900/70">
+          {isProvider ? "Already registered as a Service Provider? " : "Already have an account? "}
+        </span>
+        <Link href="/login" className="font-extrabold text-pink-600 hover:underline">
           Sign In
         </Link>
       </div>
@@ -518,8 +459,9 @@ export default function RegisterPage() {
           <div className="absolute inset-0 opacity-35">
             <Image
               src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=1000"
-              alt="Luxury Experience"
+              alt="RentasBuddy Member"
               fill
+              sizes="(max-width: 1024px) 100vw, 40vw"
               className="object-cover"
             />
           </div>
@@ -530,32 +472,32 @@ export default function RegisterPage() {
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white">
                 <Sparkles className="w-4 h-4" />
               </div>
-              <span className="font-serif font-bold text-xl">{SITE_CONFIG.name}</span>
+              <span className="font-extrabold text-xl tracking-tight">{SITE_CONFIG.name}</span>
             </Link>
 
             <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider text-pink-200">
-              Registration Portal
+              Registration
             </span>
           </div>
 
           <div className="relative z-10 my-10 space-y-4">
-            <h3 className="text-2xl font-bold font-serif">Join RentasBuddy Privé</h3>
+            <h3 className="text-2xl font-extrabold">Verified Companion Marketplace</h3>
             <ul className="space-y-3 text-xs text-pink-100">
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-pink-400 shrink-0" />
-                <span>Encrypted access to 1,250+ verified companions & services</span>
+                <span>Verified companion profiles & discrete service arrangements</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-pink-400 shrink-0" />
-                <span>Verified identity & confidential profile management</span>
+                <span>Real-time availability windows & hourly rate transparency</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-pink-400 shrink-0" />
-                <span>Confidential privacy protections & non-disclosure</span>
+                <span>In-person 6-digit connection OTP protocol</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-pink-400 shrink-0" />
-                <span>Flexible companion bookings and service creation</span>
+                <span>256-bit encrypted data privacy & non-disclosure protection</span>
               </li>
             </ul>
           </div>
@@ -566,7 +508,7 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Right Side: Form wrapped in Suspense */}
+        {/* Right Side: Form */}
         <Suspense fallback={<div className="lg:col-span-7 p-12 text-center text-purple-900/60 font-semibold">Loading registration form...</div>}>
           <RegisterForm />
         </Suspense>

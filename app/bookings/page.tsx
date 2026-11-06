@@ -178,6 +178,7 @@ export default function BookingsPage() {
                       src={booking.serviceImage || "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800"}
                       alt={booking.serviceName}
                       fill
+                      sizes="(max-width: 1024px) 100vw, 33vw"
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-white/90 backdrop-blur-md text-[11px] font-bold text-purple-950 shadow-md">
