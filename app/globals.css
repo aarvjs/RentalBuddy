@@ -112,17 +112,29 @@ button, input, select, textarea {
   animation: pulseGlow 8s ease-in-out infinite;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - sleek, unobtrusive */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
+  height: 0px;
 }
 ::-webkit-scrollbar-track {
-  background: #FFF0F4;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #F472B6;
-  border-radius: 5px;
+  background: rgba(244, 114, 182, 0.35);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #C084FC;
+  background: rgba(192, 132, 252, 0.6);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  height: 0;
+  width: 0;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

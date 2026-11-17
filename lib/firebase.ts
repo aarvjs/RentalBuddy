@@ -46,6 +46,7 @@ export interface UserProfileData {
   fullName: string;
   email: string;
   mobileNumber?: string;
+  phoneNumber?: string;
   city: string;
   state?: string;
   pincode?: string;
@@ -93,6 +94,11 @@ export interface UserProfileData {
   userType: "customer" | "provider" | "both";
   partnerPreference?: string;
   photoURL?: string;
+  coverPhotoURL?: string;
+  bio?: string;
+  interests?: string[];
+  languages?: string[];
+  galleryPhotos?: string[];
   createdAt: string;
   updatedAt?: string;
 }
@@ -366,6 +372,9 @@ export async function updateUserProfile(uid: string, data: Partial<UserProfileDa
 export interface CustomerPaymentRecordData {
   id: string;
   bookingId: string;
+  orderId?: string;
+  razorpayPaymentId?: string;
+  receiptId?: string;
   customerId: string;
   customerName: string;
   customerEmail?: string;
@@ -381,6 +390,11 @@ export interface CustomerPaymentRecordData {
   currency?: string;
   paymentStatus: string;
   paymentMethod: string;
+  mode?: string;
+  date?: string;
+  time?: string;
+  duration?: string;
+  paidAt?: string;
   createdAt: string;
 }
 
@@ -395,6 +409,21 @@ export async function getUserPayments(uid: string): Promise<CustomerPaymentRecor
     return list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   } catch (error) {
     console.warn("Could not fetch user payments from Firestore:", error);
+    return [];
+  }
+}
+
+export async function getProviderPayments(providerId: string): Promise<CustomerPaymentRecordData[]> {
+  try {
+    const q = query(collection(db, "payments"), where("providerId", "==", providerId));
+    const querySnapshot = await getDocs(q);
+    const list: CustomerPaymentRecordData[] = [];
+    querySnapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as CustomerPaymentRecordData);
+    });
+    return list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  } catch (error) {
+    console.warn("Could not fetch provider payments from Firestore:", error);
     return [];
   }
 }

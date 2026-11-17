@@ -5,6 +5,9 @@ import { WithdrawalRecord } from "@/types/service-provider";
 export interface CustomerPaymentRecord {
   id: string;
   bookingId: string;
+  orderId?: string;
+  razorpayPaymentId?: string;
+  receiptId?: string;
   customerId: string;
   customerName: string;
   customerEmail?: string;
@@ -20,6 +23,11 @@ export interface CustomerPaymentRecord {
   currency?: string;
   paymentStatus: string;
   paymentMethod: string;
+  mode?: string;
+  date?: string;
+  time?: string;
+  duration?: string;
+  paidAt?: string;
   createdAt: string;
 }
 

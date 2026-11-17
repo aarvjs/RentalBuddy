@@ -85,7 +85,7 @@ export function ServiceProviderProfileMenu({
               className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
             >
               <User className="w-4 h-4 text-pink-500" />
-              <span>Provider Profile</span>
+              <span>My Profile</span>
             </Link>
 
             <Link

@@ -58,7 +58,18 @@ export interface ProviderProfile {
     localityName?: string;
   };
   bio?: string;
+  headline?: string;
   photoURL?: string;
+  coverPhotoURL?: string;
+  experience?: string;
+  yearsOfExperience?: number | string;
+  skills?: string[];
+  languages?: string[];
+  interests?: string[];
+  galleryPhotos?: string[];
+  portfolioImages?: string[];
+  rating?: number;
+  reviewCount?: number;
   phoneVerified?: boolean;
   phoneVerifiedAt?: string;
 }
@@ -124,6 +135,7 @@ export interface ProviderAvailabilityConfig {
   availableFrom?: string;
   availableTo?: string;
   contactNumber?: string;
+  hourlyRate?: number;
   updatedAt?: string;
 }
 

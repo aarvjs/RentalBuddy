@@ -33,6 +33,7 @@ import {
 } from "@/lib/service-provider/provider-services";
 import { LocationSearchSelector, ServiceLocationData } from "@/components/location/LocationSearchSelector";
 import { updateUserProfile } from "@/lib/firebase";
+import { loadRazorpayScript } from "@/lib/razorpay-client";
 
 function parseTimeString(timeStr?: string): number {
   if (!timeStr) return 0;
@@ -363,7 +364,7 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
     setBookingError("");
   };
 
-  // Confirm Purchase & Atomic Booking API Call
+  // Confirm Purchase & Razorpay Payment Checkout
   const handleConfirmPurchase = async () => {
     if (!user || !service || !bookingProvider) return;
     setPurchasing(true);
@@ -379,7 +380,14 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
       const endMins = startMins + durationHrs * 60;
       const endTimeFormatted = formatMinutesToTime(endMins);
 
-      const response = await fetch("/api/bookings/create", {
+      // 1. Ensure Razorpay Checkout script is loaded
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        throw new Error("Unable to load secure Razorpay Checkout SDK. Please check your internet connection.");
+      }
+
+      // 2. Create Razorpay order server-side
+      const createOrderRes = await fetch("/api/payments/create-order", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -388,10 +396,9 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
         body: JSON.stringify({
           userId: user.uid,
           customerName: profile?.fullName || user.displayName || "Valued Member",
-          customerEmail: user.email,
+          customerEmail: user.email || "",
           serviceId: service.id,
           serviceName: service.serviceName,
-          serviceImage: service.imageUrl || "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800",
           providerId: bookingProvider.providerId,
           providerName: bookingProvider.fullName,
           date: bookingDate,
@@ -408,29 +415,112 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create booking. Please try another time slot.");
+      const orderResult = await createOrderRes.json();
+      if (!createOrderRes.ok || !orderResult.success) {
+        throw new Error(orderResult?.error?.message || "Failed to initialize payment gateway order.");
       }
 
-      setBookingSuccessData({
-        bookingId: data.bookingId,
+      const { orderId, amountInPaise, keyId, paymentId } = orderResult.data;
+
+      const bookingDraft = {
+        userId: user.uid,
+        customerName: profile?.fullName || user.displayName || "Valued Member",
+        customerEmail: user.email || "",
+        serviceId: service.id,
         serviceName: service.serviceName,
+        serviceImage: service.imageUrl || "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800",
+        providerId: bookingProvider.providerId,
         providerName: bookingProvider.fullName,
-        providerPhone: data.providerPhone,
         date: bookingDate,
         time: `${bookingTime} – ${endTimeFormatted}`,
         duration: `${durationHrs} Hour${durationHrs > 1 ? "s" : ""}`,
         amount: totalAmount,
-        connectionOtp: data.connectionOtp,
-      });
+        hourlyRate,
+        stateId: selectedLocation?.stateId || "up",
+        stateName: selectedLocation?.state || "Uttar Pradesh",
+        cityId: selectedLocation?.cityId || "kanpur",
+        cityName: selectedLocation?.city || "Kanpur",
+        localityId: selectedLocation?.localityId || "panki",
+        localityName: selectedLocation?.locality || "Panki",
+      };
 
-      setBookingStep("success");
+      // 3. Launch official Razorpay Checkout modal
+      const options = {
+        key: keyId,
+        amount: amountInPaise,
+        currency: "INR",
+        name: "RentasBuddy",
+        description: `${service.serviceName} with ${bookingProvider.fullName}`,
+        order_id: orderId,
+        prefill: {
+          name: profile?.fullName || user.displayName || "",
+          email: user.email || "",
+          contact: profile?.phoneNumber || profile?.mobileNumber || "",
+        },
+        theme: {
+          color: "#E11D48",
+        },
+        modal: {
+          ondismiss: () => {
+            setPurchasing(false);
+          },
+        },
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            setPurchasing(true);
+            const verifyRes = await fetch("/api/payments/verify", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${idToken}`,
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                paymentId,
+                bookingDraft,
+              }),
+            });
+
+            const verifyResult = await verifyRes.json();
+            if (!verifyRes.ok || !verifyResult.success) {
+              throw new Error(verifyResult?.error?.message || "Payment verification failed.");
+            }
+
+            setBookingSuccessData({
+              bookingId: verifyResult.data.bookingId,
+              serviceName: service.serviceName,
+              providerName: bookingProvider.fullName,
+              providerPhone: verifyResult.data.providerPhone,
+              date: bookingDate,
+              time: `${bookingTime} – ${endTimeFormatted}`,
+              duration: `${durationHrs} Hour${durationHrs > 1 ? "s" : ""}`,
+              amount: totalAmount,
+              connectionOtp: verifyResult.data.connectionOtp,
+            });
+            setBookingStep("success");
+          } catch (verifyErr: any) {
+            setBookingError(verifyErr?.message || "Payment verified, but booking could not be saved.");
+          } finally {
+            setPurchasing(false);
+          }
+        },
+      };
+
+      const razorpayInstance = new window.Razorpay(options);
+      razorpayInstance.on("payment.failed", (res: any) => {
+        setBookingError(res.error?.description || "Payment failed or rejected by provider.");
+        setPurchasing(false);
+      });
+      razorpayInstance.open();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "An unexpected error occurred during booking.";
       setBookingError(msg);
-    } finally {
       setPurchasing(false);
     }
   };
@@ -717,8 +807,8 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
                   </div>
                 )}
 
-                <p className="text-[11px] text-purple-900/60 leading-relaxed italic">
-                  Demo Payment Simulation: Upon confirmation, booking will be marked as <span className="font-bold text-purple-950">PAID</span>, and your 6-digit Connection Code & Partner Contact details will be unlocked.
+                <p className="text-[11px] text-purple-900/60 leading-relaxed">
+                  Secured via Razorpay: Your payment is processed safely with instant confirmation and 6-digit Connection Code generation.
                 </p>
 
                 <div className="pt-2 flex gap-3">

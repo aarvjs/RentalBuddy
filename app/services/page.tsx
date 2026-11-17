@@ -90,7 +90,7 @@ export default function ServicesCatalogPage() {
           </div>
 
           {/* Categories Pill Bar */}
-          <div className="flex items-center gap-2 overflow-x-auto pt-6 mt-6 border-t border-pink-100">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pt-6 mt-6 border-t border-pink-100 flex-wrap sm:flex-nowrap">
             {categories.map((cat) => (
               <button
                 key={cat}

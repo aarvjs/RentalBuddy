@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   Wallet,
   Settings,
+  User,
   LayoutDashboard,
   Briefcase,
   ChevronDown,
@@ -233,12 +234,12 @@ export function Navbar() {
                           )}
 
                           <Link
-                            href="/settings"
+                            href="/profile"
                             onClick={() => setDropdownOpen(false)}
                             className="flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold text-purple-950 hover:bg-pink-50 transition-colors"
                           >
-                            <Settings className="w-4 h-4 text-pink-500" />
-                            <span>Account Settings</span>
+                            <User className="w-4 h-4 text-pink-500" />
+                            <span>My Profile</span>
                           </Link>
 
                           <Link
@@ -373,10 +374,10 @@ export function Navbar() {
                     </Link>
                   )}
                   <Link
-                    href="/settings"
+                    href="/profile"
                     className="py-2.5 px-4 rounded-full bg-pink-50 text-xs font-bold text-purple-950 flex items-center gap-2"
                   >
-                    <Settings className="w-4 h-4 text-pink-500" /> Account Settings
+                    <User className="w-4 h-4 text-pink-500" /> My Profile
                   </Link>
                   <Link
                     href="/bookings"

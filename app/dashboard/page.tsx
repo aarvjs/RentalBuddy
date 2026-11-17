@@ -1051,7 +1051,7 @@ export default function DashboardPage() {
 
             {/* Profile Avatar */}
             <Link
-              href="/settings"
+              href="/profile"
               className="flex items-center gap-3 p-2 pr-5 rounded-full bg-pink-50/60 border border-pink-200/80 hover:border-pink-300 transition-all shrink-0 group"
             >
               <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-pink-500 via-rose-500 to-purple-600 text-white font-extrabold text-lg flex items-center justify-center shadow-md shadow-pink-500/20 overflow-hidden border-2 border-white">

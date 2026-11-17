@@ -63,7 +63,9 @@ export default function AdminPaymentsPage() {
       p.providerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.serviceName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.bookingId?.toLowerCase().includes(searchQuery.toLowerCase())
+      p.bookingId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.orderId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.razorpayPaymentId?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredWithdrawals = withdrawals.filter(
@@ -135,7 +137,12 @@ export default function AdminPaymentsPage() {
               <tbody className="divide-y divide-purple-100/60">
                 {filteredPayments.map((p) => (
                   <tr key={p.id} className="hover:bg-purple-50/30 transition-colors">
-                    <td className="p-4 font-mono font-bold text-purple-950">{p.id?.slice(0, 14)}</td>
+                    <td className="p-4">
+                      <div className="font-mono font-bold text-purple-950 text-xs">{p.id?.slice(0, 16)}</div>
+                      {p.razorpayPaymentId && (
+                        <div className="font-mono text-[9px] text-pink-600 font-semibold">{p.razorpayPaymentId}</div>
+                      )}
+                    </td>
                     <td className="p-4">
                       <div className="font-bold text-purple-950">{p.customerName}</div>
                       {p.customerEmail && <div className="text-[10px] text-purple-900/60 font-semibold">{p.customerEmail}</div>}
@@ -148,8 +155,16 @@ export default function AdminPaymentsPage() {
                     <td className="p-4 font-black text-purple-950 text-sm">₹{p.amount?.toLocaleString("en-IN")}</td>
                     <td className="p-4 font-mono text-[10px] uppercase font-bold text-purple-700">{p.paymentMethod || "demo"}</td>
                     <td className="p-4">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
-                        {p.paymentStatus.toUpperCase()} ✓
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          p.paymentStatus === "paid"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : p.paymentStatus === "pending"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-rose-100 text-rose-800"
+                        }`}
+                      >
+                        {p.paymentStatus?.toUpperCase() || "PAID"}
                       </span>
                     </td>
                     <td className="p-4 text-[10px] text-purple-900/60 font-medium">
