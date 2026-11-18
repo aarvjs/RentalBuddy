@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, use } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import {
   Sparkles,
   MapPin,
@@ -38,11 +38,11 @@ import { loadRazorpayScript } from "@/lib/razorpay-client";
 function parseTimeString(timeStr?: string): number {
   if (!timeStr) return 0;
   const cleanStr = timeStr.split("–")[0].split("-")[0].trim();
-  const match = cleanStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  const match = cleanStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)?/i);
   if (!match) return 0;
   let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const ampm = match[3] ? match[3].toUpperCase() : "AM";
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const ampm = match[3] ? match[3].toUpperCase() : null;
   if (ampm === "PM" && hours < 12) hours += 12;
   if (ampm === "AM" && hours === 12) hours = 0;
   return hours * 60 + minutes;
@@ -101,7 +101,7 @@ interface BookingSuccessInfo {
 }
 
 interface PageProps {
-  params: Promise<{ serviceId: string }>;
+  params?: Promise<{ serviceId: string }> | { serviceId: string };
 }
 
 const DEFAULT_LOCATION: ServiceLocationData = {
@@ -122,8 +122,28 @@ const DEFAULT_LOCATION: ServiceLocationData = {
 };
 
 export default function ServiceDiscoveryPage({ params }: PageProps) {
-  const resolvedParams = use(params);
-  const serviceId = resolvedParams.serviceId;
+  const routeParams = useParams();
+
+  // Safe extraction of serviceId across SSR, Client Navigation and Direct Entry
+  let rawServiceId = "";
+  if (routeParams && routeParams.serviceId) {
+    rawServiceId = Array.isArray(routeParams.serviceId)
+      ? routeParams.serviceId[0]
+      : (routeParams.serviceId as string);
+  } else if (params) {
+    if (typeof (params as any)?.then === "function") {
+      try {
+        const unwrapped = use(params as Promise<{ serviceId: string }>);
+        if (unwrapped?.serviceId) rawServiceId = unwrapped.serviceId;
+      } catch {
+        // Fallback safely if use() cannot resolve
+      }
+    } else if ((params as any)?.serviceId) {
+      rawServiceId = (params as any).serviceId;
+    }
+  }
+
+  const serviceId = decodeURIComponent(rawServiceId || "clubbing");
   const router = useRouter();
 
   const { user, profile, openAuthModal } = useAuth();
@@ -133,6 +153,7 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
   const [allServices, setAllServices] = useState<MasterServiceItem[]>([]);
   const [providers, setProviders] = useState<EligibleProviderInfo[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Customer Location State
   const [selectedLocation, setSelectedLocation] = useState<ServiceLocationData>(() => {
@@ -151,12 +172,12 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
   const [savingLocation, setSavingLocation] = useState(false);
 
   // Filter States
-  const [minPrice, setMinPrice] = useState<number>(500);
+  const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(10000);
   const [availabilityDateOption, setAvailabilityDateOption] = useState<"all" | "today" | "tomorrow">("all");
   const [timeFilter, setTimeFilter] = useState<"all" | "morning" | "afternoon" | "evening" | "night">("all");
   const [minRating, setMinRating] = useState<number | null>(null);
-  const [verifiedOnly, setVerifiedOnly] = useState<boolean>(true);
+  const [verifiedOnly, setVerifiedOnly] = useState<boolean>(false);
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"recommended" | "price_asc" | "price_desc" | "highest_rated">("recommended");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -178,24 +199,26 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
   // Sync profile location when profile loads
   useEffect(() => {
     const saved = profile?.customerLocation || profile?.location;
-    if (saved?.city && saved?.locality) {
+    if (saved && (saved.city || saved.cityName || saved.locality)) {
+      const city = saved.city || saved.cityName || "Kanpur";
+      const locality = saved.locality || saved.localityName || "Panki";
       setSelectedLocation((prev) => {
-        if (prev.city === saved.city && prev.locality === saved.locality) return prev;
+        if (prev.city === city && prev.locality === locality) return prev;
         return {
-          fullAddress: saved.address || `${saved.locality}, ${saved.city}, ${saved.state || "UP"}, India`,
+          fullAddress: saved.address || `${locality}, ${city}, ${saved.state || "UP"}, India`,
           country: saved.country || "India",
           state: saved.state || saved.stateName || "Uttar Pradesh",
-          city: saved.city || saved.cityName || "Kanpur",
-          locality: saved.locality || saved.localityName || "Panki",
+          city: city,
+          locality: locality,
           pincode: saved.pincode || "208020",
-          latitude: saved.latitude || 26.4499,
-          longitude: saved.longitude || 80.3319,
+          latitude: Number(saved.latitude) || 26.4499,
+          longitude: Number(saved.longitude) || 80.3319,
           stateId: saved.stateId || "up",
           stateName: saved.stateName || saved.state || "Uttar Pradesh",
           cityId: saved.cityId || "kanpur",
-          cityName: saved.cityName || saved.city || "Kanpur",
+          cityName: city,
           localityId: saved.localityId || "panki",
-          localityName: saved.localityName || saved.locality || "Panki",
+          localityName: locality,
         };
       });
     }
@@ -207,6 +230,9 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
       try {
         const s = await getServiceById(serviceId);
         setService(s);
+        if (s?.category) {
+          setSelectedCategory(s.category);
+        }
       } catch (err) {
         console.error("Failed to load service details:", err);
       }
@@ -223,13 +249,31 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
     loadAllServices();
   }, [serviceId]);
 
+  // Derived category list and filtered services by selected category
+  const allCategories = useMemo(() => {
+    const cats = Array.from(new Set(allServices.map((s) => s.category).filter(Boolean)));
+    return ["all", ...cats];
+  }, [allServices]);
+
+  const displayedServices = useMemo(() => {
+    if (selectedCategory === "all") return allServices;
+    return allServices.filter(
+      (s) => s.category.toLowerCase() === selectedCategory.toLowerCase()
+    );
+  }, [allServices, selectedCategory]);
+
   // Fetch Eligible Providers enrolled in this service for current location
   useEffect(() => {
     async function loadProviders() {
       if (!serviceId) return;
       setLoadingProviders(true);
       try {
-        const list = await getEligibleProvidersForService(serviceId, selectedLocation);
+        const list = await getEligibleProvidersForService(
+          serviceId,
+          selectedLocation,
+          service?.category,
+          service?.serviceName
+        );
         setProviders(list);
       } catch (err) {
         console.error("Failed to fetch eligible providers:", err);
@@ -239,7 +283,7 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
       }
     }
     loadProviders();
-  }, [serviceId, selectedLocation]);
+  }, [serviceId, selectedLocation, service?.category, service?.serviceName]);
 
   // Save Customer Location Handler
   const handleSaveLocation = async (locToSave: ServiceLocationData | null) => {
@@ -321,19 +365,26 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
           if (timeFilter === "night" && (startMins < 1260 && startMins >= 360)) return false;
         }
 
+        // Availability Date Option
+        if (availabilityDateOption === "today" && !p.isActive) return false;
+
         return true;
       })
       .sort((a, b) => {
+        if (a.isLocalMatch !== b.isLocalMatch) {
+          return a.isLocalMatch ? -1 : 1;
+        }
         if (sortBy === "price_asc") return a.hourlyRate - b.hourlyRate;
         if (sortBy === "price_desc") return b.hourlyRate - a.hourlyRate;
         if (sortBy === "highest_rated") return (b.rating || 0) - (a.rating || 0);
         return 0; // recommended default
       });
-  }, [providers, minPrice, maxPrice, verifiedOnly, minRating, genderFilter, timeFilter, sortBy]);
+  }, [providers, minPrice, maxPrice, verifiedOnly, minRating, genderFilter, timeFilter, availabilityDateOption, sortBy]);
 
   // Clear All Filters
   const handleClearFilters = () => {
-    setMinPrice(500);
+    setSelectedCategory("all");
+    setMinPrice(0);
     setMaxPrice(10000);
     setAvailabilityDateOption("all");
     setTimeFilter("all");
@@ -960,6 +1011,39 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
           </div>
         </div>
 
+        {/* Horizontal Category Filter Pills Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-2 mb-6 flex-wrap sm:flex-nowrap">
+          {allCategories.map((cat) => {
+            const isSelected =
+              (selectedCategory === "all" && cat === "all") ||
+              selectedCategory.toLowerCase() === cat.toLowerCase();
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => {
+                  setSelectedCategory(cat);
+                  if (cat !== "all") {
+                    const firstInCat = allServices.find(
+                      (s) => s.category.toLowerCase() === cat.toLowerCase()
+                    );
+                    if (firstInCat && firstInCat.id !== serviceId) {
+                      router.push(`/services/${firstInCat.id}`);
+                    }
+                  }
+                }}
+                className={`px-4 py-2 rounded-full text-xs font-extrabold uppercase tracking-wider transition-all shrink-0 capitalize whitespace-nowrap cursor-pointer ${
+                  isSelected
+                    ? "bg-purple-950 text-white shadow-md shadow-purple-950/20 scale-[1.02]"
+                    : "bg-white border border-pink-200 text-purple-950 hover:bg-pink-50"
+                }`}
+              >
+                {cat === "all" ? "All Categories" : cat}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Mobile Filter Toggle Button */}
         <div className="lg:hidden mb-6 flex items-center justify-between">
           <button
@@ -997,10 +1081,47 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
                 </div>
                 <button
                   onClick={handleClearFilters}
-                  className="text-[11px] font-bold text-pink-600 hover:text-pink-700 flex items-center gap-1"
+                  className="text-[11px] font-bold text-pink-600 hover:text-pink-700 flex items-center gap-1 cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" /> Clear All
                 </button>
+              </div>
+
+              {/* CATEGORY FILTER */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-purple-950 uppercase tracking-wider block">
+                    Category
+                  </label>
+                  <span className="text-[10px] text-pink-600 font-bold capitalize">
+                    {selectedCategory === "all" ? "All" : selectedCategory}
+                  </span>
+                </div>
+                <div className="relative">
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => {
+                      const newCat = e.target.value;
+                      setSelectedCategory(newCat);
+                      if (newCat !== "all") {
+                        const firstInCat = allServices.find(
+                          (s) => s.category.toLowerCase() === newCat.toLowerCase()
+                        );
+                        if (firstInCat && firstInCat.id !== serviceId) {
+                          router.push(`/services/${firstInCat.id}`);
+                        }
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 rounded-2xl border border-pink-200 bg-pink-50/60 text-purple-950 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer appearance-none pr-9 shadow-xs"
+                  >
+                    {allCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat === "all" ? "All Categories" : cat}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-pink-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
               {/* SERVICE FILTER DROPDOWN */}
@@ -1010,7 +1131,7 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
                     Service
                   </label>
                   <span className="text-[10px] text-pink-600 font-bold">
-                    {allServices.length} Services
+                    {displayedServices.length} Services
                   </span>
                 </div>
                 <div className="relative">
@@ -1024,7 +1145,7 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
                     }}
                     className="w-full px-4 py-2.5 rounded-2xl border border-pink-200 bg-pink-50/60 text-purple-950 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer appearance-none pr-9 shadow-xs"
                   >
-                    {allServices.map((s) => (
+                    {displayedServices.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.serviceName}
                       </option>
@@ -1068,9 +1189,9 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
                 <div className="space-y-2">
                   <input
                     type="range"
-                    min="500"
+                    min="0"
                     max="10000"
-                    step="250"
+                    step="50"
                     value={maxPrice}
                     onChange={(e) => setMaxPrice(Number(e.target.value))}
                     className="w-full accent-pink-500 cursor-pointer"
@@ -1080,8 +1201,10 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
                       <span className="text-[10px] text-purple-900/60 block">Min</span>
                       <input
                         type="number"
+                        min="0"
+                        max="10000"
                         value={minPrice}
-                        onChange={(e) => setMinPrice(Number(e.target.value))}
+                        onChange={(e) => setMinPrice(Math.max(0, Number(e.target.value)))}
                         className="w-full px-2.5 py-1.5 rounded-xl border border-pink-200 text-xs font-bold text-purple-950"
                       />
                     </div>
@@ -1089,8 +1212,10 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
                       <span className="text-[10px] text-purple-900/60 block">Max</span>
                       <input
                         type="number"
+                        min="0"
+                        max="10000"
                         value={maxPrice}
-                        onChange={(e) => setMaxPrice(Number(e.target.value))}
+                        onChange={(e) => setMaxPrice(Math.min(10000, Number(e.target.value)))}
                         className="w-full px-2.5 py-1.5 rounded-xl border border-pink-200 text-xs font-bold text-purple-950"
                       />
                     </div>
@@ -1293,19 +1418,27 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-purple-950/60 via-transparent to-transparent" />
 
-                        {/* Verified Badge */}
-                        {provider.isKycApproved && (
-                          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md border border-pink-200 text-emerald-700 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Verified</span>
-                          </div>
-                        )}
+                        {/* Verified & Local Badges */}
+                        <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+                          {provider.isKycApproved && (
+                            <div className="px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md border border-pink-200 text-emerald-700 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Verified</span>
+                            </div>
+                          )}
+                          {provider.isLocalMatch && (
+                            <div className="px-2.5 py-1 rounded-full bg-pink-600/90 backdrop-blur-md text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                              <MapPin className="w-3 h-3 text-pink-200" />
+                              <span>In Your City</span>
+                            </div>
+                          )}
+                        </div>
 
                         {/* Location Badge */}
                         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs">
                           <span className="font-bold flex items-center gap-1 drop-shadow-sm">
                             <MapPin className="w-3.5 h-3.5 text-pink-300" />
-                            {provider.localityName || "Panki"}, {provider.cityName || "Kanpur"}
+                            {provider.localityName || provider.cityName || "Kanpur Dehat"}
                           </span>
 
                           {provider.rating && (
@@ -1426,11 +1559,47 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
               </button>
             </div>
 
+            {/* Mobile Category Filter */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-extrabold text-purple-950 uppercase block">Category</label>
+                <span className="text-[10px] text-pink-600 font-bold capitalize">
+                  {selectedCategory === "all" ? "All" : selectedCategory}
+                </span>
+              </div>
+              <div className="relative">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    const newCat = e.target.value;
+                    setSelectedCategory(newCat);
+                    if (newCat !== "all") {
+                      const firstInCat = allServices.find(
+                        (s) => s.category.toLowerCase() === newCat.toLowerCase()
+                      );
+                      if (firstInCat && firstInCat.id !== serviceId) {
+                        setMobileFilterOpen(false);
+                        router.push(`/services/${firstInCat.id}`);
+                      }
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-pink-200 bg-pink-50 text-purple-950 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer appearance-none pr-8"
+                >
+                  {allCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat === "all" ? "All Categories" : cat}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-pink-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
             {/* Mobile Service Filter */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-extrabold text-purple-950 uppercase block">Service</label>
-                <span className="text-[10px] text-pink-600 font-bold">{allServices.length} Services</span>
+                <span className="text-[10px] text-pink-600 font-bold">{displayedServices.length} Services</span>
               </div>
               <div className="relative">
                 <select
@@ -1444,7 +1613,7 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
                   }}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-pink-200 bg-pink-50 text-purple-950 font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer appearance-none pr-8"
                 >
-                  {allServices.map((s) => (
+                  {displayedServices.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.serviceName}
                     </option>
@@ -1471,21 +1640,45 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Mobile Max Price */}
+            {/* Mobile Price Range Filter */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
-                <label className="font-extrabold text-purple-950 uppercase">Max Price</label>
-                <span className="font-black text-pink-600">₹{maxPrice}/hr</span>
+                <label className="font-extrabold text-purple-950 uppercase">Price Range (₹/hr)</label>
+                <span className="font-black text-pink-600">₹{minPrice} – ₹{maxPrice}</span>
               </div>
               <input
                 type="range"
-                min="500"
+                min="0"
                 max="10000"
-                step="250"
+                step="50"
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(Number(e.target.value))}
-                className="w-full accent-pink-500"
+                className="w-full accent-pink-500 cursor-pointer"
               />
+              <div className="flex gap-2 pt-1">
+                <div className="flex-1">
+                  <span className="text-[10px] text-purple-900/60 block">Min</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10000"
+                    value={minPrice}
+                    onChange={(e) => setMinPrice(Math.max(0, Number(e.target.value)))}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-pink-200 text-xs font-bold text-purple-950"
+                  />
+                </div>
+                <div className="flex-1">
+                  <span className="text-[10px] text-purple-900/60 block">Max</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10000"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(Math.min(10000, Number(e.target.value)))}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-pink-200 text-xs font-bold text-purple-950"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Mobile Time */}

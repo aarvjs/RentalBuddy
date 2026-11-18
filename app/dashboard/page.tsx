@@ -47,6 +47,7 @@ import {
 } from "@/lib/service-provider/provider-services";
 import { LocationSearchSelector, ServiceLocationData } from "@/components/location/LocationSearchSelector";
 import { isValidLocation } from "@/lib/locations";
+import { loadRazorpayScript } from "@/lib/razorpay-client";
 
 export interface EnrolledProviderInfo {
   providerId: string;
@@ -56,15 +57,22 @@ export interface EnrolledProviderInfo {
   availableTo?: string;
   photoURL?: string;
   hourlyRate?: number;
+  rating?: number;
+  headline?: string;
+  bio?: string;
+  location?: string;
+  serviceCategory?: string;
+  matchScore?: number;
 }
 
 function parseTimeString(t: string): number {
   if (!t) return 0;
-  const match = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  const cleanStr = t.split("–")[0].split("-")[0].trim();
+  const match = cleanStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)?/i);
   if (!match) return 0;
   let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const ampm = match[3].toUpperCase();
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const ampm = match[3] ? match[3].toUpperCase() : null;
   if (ampm === "PM" && hours < 12) hours += 12;
   if (ampm === "AM" && hours === 12) hours = 0;
   return hours * 60 + minutes;
@@ -253,6 +261,12 @@ export default function DashboardPage() {
         }
       }
 
+      try {
+        localStorage.setItem("rentasbuddy_saved_location", JSON.stringify(target));
+      } catch {
+        // ignore
+      }
+
       await refreshProfile();
       setCustomerLocation(target);
       setIsLocationModalOpen(false);
@@ -316,7 +330,7 @@ export default function DashboardPage() {
           servicesList.map(async (s) => {
             try {
               if (typeof getAvailableProviderCountForService === "function") {
-                const count = await getAvailableProviderCountForService(s.id);
+                const count = await getAvailableProviderCountForService(s.id, s.category, s.serviceName);
                 counts[s.id] = count;
               } else {
                 counts[s.id] = 0;
@@ -355,73 +369,8 @@ export default function DashboardPage() {
     return false;
   });
 
-  const handleBookClick = async (service: MasterServiceItem) => {
-    const custCity = cleanLoc(customerLocation?.cityId || customerLocation?.city || profile?.cityId);
-    const custLocality = cleanLoc(customerLocation?.localityId || customerLocation?.locality || profile?.localityId);
-
-    try {
-      const q = query(
-        collection(db, "providerServices"),
-        where("serviceId", "==", service.id),
-        where("isAvailable", "==", true)
-      );
-      const snapshot = await getDocs(q);
-      const providersList: EnrolledProviderInfo[] = [];
-
-      await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
-          const data = docSnap.data();
-          const provCity = cleanLoc(data.cityId || data.city || data.cityName);
-          const provLoc = cleanLoc(data.localityId || data.locality || data.localityName);
-
-          const matchCity = !provCity || provCity === custCity;
-          const matchLocality = !provLoc || provLoc === custLocality;
-          if (matchCity && matchLocality) {
-            let pName = data.providerName || "Yash";
-            let pPhoto = "";
-            let pMobile = data.contactNumber || "";
-
-            try {
-              const pSnap = await getDoc(doc(db, "providers", data.providerId));
-              if (pSnap.exists()) {
-                const pData = pSnap.data();
-                if (pData.fullName) pName = pData.fullName;
-                if (pData.photoURL) pPhoto = pData.photoURL;
-                if (!pMobile && (pData.mobileNumber || pData.phoneNumber)) {
-                  pMobile = pData.mobileNumber || pData.phoneNumber;
-                }
-              }
-            } catch (err) {
-              console.warn("Could not fetch provider profile for list:", err);
-            }
-
-            providersList.push({
-              providerId: data.providerId || "prov_yash_partner",
-              providerName: pName,
-              contactNumber: pMobile,
-              availableFrom: data.availableFrom || "06:00 PM",
-              availableTo: data.availableTo || "10:00 PM",
-              photoURL: pPhoto,
-              hourlyRate: service.price || 2000,
-            });
-          }
-        })
-      );
-
-      if (providersList.length === 0) {
-        setUnavailableModalService(service.serviceName);
-        return;
-      }
-
-      setEnrolledProviders(providersList);
-      setSelectedProvider(null);
-      setBookingStep("provider_select");
-      setSelectedBookingService(service);
-      setBookingTime(providersList[0]?.availableFrom || "06:00 PM");
-    } catch (e) {
-      console.warn("Could not fetch enrolled providers:", e);
-      setUnavailableModalService(service.serviceName);
-    }
+  const handleBookClick = (service: MasterServiceItem) => {
+    router.push(`/services/${service.id}`);
   };
 
   // Real-time booking validation
@@ -471,14 +420,21 @@ export default function DashboardPage() {
 
     try {
       const idToken = await user.getIdToken();
-      const provName = selectedProvider.providerName || "Yash";
+      const provName = selectedProvider.providerName || "Verified Partner";
 
       const startMins = parseTimeString(bookingTime || "06:00 PM");
       const durationHrs = parseInt(bookingDuration) || 1;
       const endMins = startMins + durationHrs * 60;
       const endTimeFormatted = formatMinutesToTime(endMins);
 
-      const response = await fetch("/api/bookings/create", {
+      // 1. Ensure Razorpay Checkout script is loaded
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        throw new Error("Unable to load secure Razorpay Checkout SDK. Please check your internet connection.");
+      }
+
+      // 2. Create Razorpay order server-side via /api/payments/create-order
+      const createOrderRes = await fetch("/api/payments/create-order", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -487,10 +443,9 @@ export default function DashboardPage() {
         body: JSON.stringify({
           userId: user.uid,
           customerName: profile?.fullName || user.displayName || "Valued Member",
-          customerEmail: user.email,
+          customerEmail: user.email || "",
           serviceId: selectedBookingService.id,
           serviceName: selectedBookingService.serviceName,
-          serviceImage: selectedBookingService.imageUrl,
           providerId: selectedProvider.providerId,
           providerName: provName,
           date: bookingDate,
@@ -507,46 +462,128 @@ export default function DashboardPage() {
         }),
       });
 
-      const responseText = await response.text();
-      let data: any = {};
-      try {
-        data = JSON.parse(responseText);
-      } catch {
-        throw new Error(
-          `Server response error (${response.status}): ${
-            responseText.startsWith("<")
-              ? "Server returned an error page. Please try again or contact support."
-              : responseText.slice(0, 100)
-          }`
-        );
-      }
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to complete purchase.");
+      const orderResult = await createOrderRes.json().catch(() => ({}));
+      if (!createOrderRes.ok || !orderResult.success) {
+        throw new Error(orderResult?.error?.message || "Failed to initialize payment gateway order.");
       }
 
-      setPurchaseSuccessData({
+      const { orderId, amountInPaise, keyId, paymentId } = orderResult.data;
+
+      const bookingDraft = {
+        userId: user.uid,
+        customerName: profile?.fullName || user.displayName || "Valued Member",
+        customerEmail: user.email || "",
+        serviceId: selectedBookingService.id,
         serviceName: selectedBookingService.serviceName,
+        serviceImage:
+          selectedBookingService.imageUrl ||
+          "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800",
+        providerId: selectedProvider.providerId,
         providerName: provName,
-        providerPhone: data.providerPhone || selectedProvider.contactNumber || "+91 98765 43210",
         date: bookingDate,
         time: `${bookingTime} – ${endTimeFormatted}`,
-        connectionOtp: data.connectionOtp || "482917",
+        duration: `${durationHrs} Hour${durationHrs > 1 ? "s" : ""}`,
+        amount: totalAmount,
+        hourlyRate,
+        stateId: customerLocation?.stateId || profile?.stateId || "up",
+        stateName: customerLocation?.state || profile?.stateName || "Uttar Pradesh",
+        cityId: customerLocation?.cityId || profile?.cityId || "kanpur",
+        cityName: customerLocation?.city || profile?.cityName || "Kanpur",
+        localityId: customerLocation?.localityId || profile?.localityId || "panki",
+        localityName: customerLocation?.locality || profile?.localityName || "Panki",
+      };
+
+      // 3. Launch official Razorpay Checkout modal
+      const options = {
+        key: keyId,
+        amount: amountInPaise,
+        currency: "INR",
+        name: "RentasBuddy",
+        description: `${selectedBookingService.serviceName} with ${provName}`,
+        order_id: orderId,
+        prefill: {
+          name: profile?.fullName || user.displayName || "",
+          email: user.email || "",
+          contact: profile?.phoneNumber || profile?.mobileNumber || "",
+        },
+        theme: {
+          color: "#E11D48",
+        },
+        modal: {
+          ondismiss: () => {
+            setPurchasing(false);
+          },
+        },
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        }) => {
+          try {
+            setPurchasing(true);
+            const verifyRes = await fetch("/api/payments/verify", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${idToken}`,
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                paymentId,
+                bookingDraft,
+              }),
+            });
+
+            const verifyResult = await verifyRes.json().catch(() => ({}));
+            if (!verifyRes.ok || !verifyResult.success) {
+              throw new Error(verifyResult?.error?.message || "Payment verification failed.");
+            }
+
+            setPurchaseSuccessData({
+              serviceName: selectedBookingService.serviceName,
+              providerName: provName,
+              providerPhone:
+                verifyResult.data?.providerPhone ||
+                selectedProvider.contactNumber ||
+                "+91 98765 43210",
+              date: bookingDate,
+              time: `${bookingTime} – ${endTimeFormatted}`,
+              connectionOtp: verifyResult.data?.connectionOtp || "482917",
+            });
+
+            setSelectedBookingService(null);
+            setSelectedProvider(null);
+            setBookingStep("provider_select");
+
+            // Refresh user bookings & payments
+            const [updatedBookings, updatedPayments] = await Promise.all([
+              getUserBookings(user.uid),
+              getUserPayments(user.uid),
+            ]);
+            setBookings(updatedBookings);
+            setCustomerPayments(updatedPayments);
+          } catch (verErr: any) {
+            alert(verErr?.message || "Payment verification failed. Please contact support.");
+          } finally {
+            setPurchasing(false);
+          }
+        },
+      };
+
+      const rzpInstance = new (window as any).Razorpay(options);
+      rzpInstance.on("payment.failed", (failResponse: any) => {
+        setPurchasing(false);
+        alert(
+          `Payment failed: ${
+            failResponse?.error?.description || "Transaction declined or cancelled."
+          }`
+        );
       });
-
-      setSelectedBookingService(null);
-      setSelectedProvider(null);
-      setBookingStep("provider_select");
-
-      // Refresh user bookings & payments
-      const [updatedBookings, updatedPayments] = await Promise.all([
-        getUserBookings(user.uid),
-        getUserPayments(user.uid),
-      ]);
-      setBookings(updatedBookings);
-      setCustomerPayments(updatedPayments);
+      rzpInstance.open();
     } catch (err: any) {
       alert(err?.message || "Purchase failed. Please try again.");
-    } finally {
       setPurchasing(false);
     }
   };
@@ -634,58 +671,107 @@ export default function DashboardPage() {
 
             {/* STEP 1: PROVIDER SELECTION */}
             {bookingStep === "provider_select" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-extrabold text-purple-950">
-                    Available Partners ({enrolledProviders.length})
-                  </h4>
-                  <span className="text-xs font-semibold text-purple-900/60">
-                    Select a Partner to configure booking
+              <div className="space-y-5">
+                <div className="flex items-center justify-between border-b border-pink-100 pb-3">
+                  <div>
+                    <h4 className="text-base font-extrabold text-purple-950 flex items-center gap-2">
+                      <span>Available Companions</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-700 text-xs font-black">
+                        {enrolledProviders.length}
+                      </span>
+                    </h4>
+                    <p className="text-xs text-purple-900/60 font-medium mt-0.5">
+                      Verified companions ready for <span className="font-extrabold text-pink-600">{selectedBookingService.serviceName}</span> ({selectedBookingService.category})
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1.5 shrink-0 shadow-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Accepting Bookings
                   </span>
                 </div>
 
-                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                <div className="space-y-3.5 max-h-[26rem] overflow-y-auto pr-1 pb-1">
                   {enrolledProviders.map((provider) => (
                     <div
                       key={provider.providerId}
-                      className="p-4 rounded-2xl bg-gradient-to-r from-pink-50/50 via-white to-purple-50/30 border border-pink-100 hover:border-pink-300 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all"
+                      className="group p-5 rounded-3xl bg-gradient-to-br from-white via-pink-50/20 to-purple-50/20 border-2 border-pink-100/80 hover:border-pink-300 hover:shadow-xl hover:shadow-purple-500/5 transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 text-white font-extrabold flex items-center justify-center overflow-hidden border-2 border-white shadow-xs shrink-0">
+                      {/* Left side: Avatar + Details */}
+                      <div className="flex items-start sm:items-center gap-4">
+                        <div className="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-500 to-purple-600 text-white font-extrabold flex items-center justify-center overflow-hidden border-2 border-white shadow-md shadow-pink-500/10 shrink-0">
                           {provider.photoURL ? (
-                            <img src={provider.photoURL} alt={provider.providerName} className="w-full h-full object-cover" />
+                            <img
+                              src={provider.photoURL}
+                              alt={provider.providerName}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
                           ) : (
-                            <span>{provider.providerName.charAt(0).toUpperCase()}</span>
+                            <span className="text-2xl font-black">{provider.providerName.charAt(0).toUpperCase()}</span>
                           )}
+                          <span className="absolute bottom-1 right-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h5 className="text-sm font-extrabold text-purple-950">{provider.providerName}</h5>
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-extrabold uppercase">
-                              Available ✓
+
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h5 className="text-base font-extrabold text-purple-950 group-hover:text-pink-600 transition-colors">
+                              {provider.providerName}
+                            </h5>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider">
+                              <ShieldCheck className="w-3 h-3 text-emerald-600" /> Verified
+                            </span>
+                            {provider.rating && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-extrabold">
+                                ★ {provider.rating.toFixed(1)}
+                              </span>
+                            )}
+                          </div>
+
+                          {provider.headline ? (
+                            <p className="text-xs text-purple-900/80 font-medium line-clamp-1 italic">
+                              &ldquo;{provider.headline}&rdquo;
+                            </p>
+                          ) : (
+                            <p className="text-xs text-purple-900/60 font-medium">
+                              Experienced companion specializing in {selectedBookingService.serviceName}
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-3 text-[11px] text-purple-900/70 font-semibold flex-wrap pt-0.5">
+                            <span className="inline-flex items-center gap-1 text-purple-950 font-bold">
+                              <MapPin className="w-3 h-3 text-pink-500" />
+                              {provider.location || customerLocation?.city || "Local Service Area"}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-pink-500" />
+                              {provider.availableFrom || "06:00 PM"} – {provider.availableTo || "10:00 PM"}
                             </span>
                           </div>
-                          <p className="text-xs font-bold text-pink-600 mt-0.5">
-                            ₹{provider.hourlyRate || selectedBookingService.price || 2000} / hour
-                          </p>
-                          <p className="text-[11px] text-purple-900/60 font-medium flex items-center gap-1 mt-0.5">
-                            <Clock className="w-3 h-3 text-pink-500" />
-                            Window: {provider.availableFrom || "06:00 PM"} – {provider.availableTo || "10:00 PM"}
-                          </p>
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedProvider(provider);
-                          setBookingStep("config");
-                          setBookingTime(provider.availableFrom || "06:00 PM");
-                        }}
-                        className="px-5 py-2.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-xs shadow-sm hover:opacity-95 shrink-0"
-                      >
-                        Select Partner
-                      </button>
+                      {/* Right side: Price & CTA */}
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-pink-100 shrink-0">
+                        <div className="text-left sm:text-right">
+                          <span className="text-[10px] font-bold text-purple-900/60 uppercase block">Hourly Rate</span>
+                          <span className="text-xl font-black text-pink-600">
+                            ₹{provider.hourlyRate || selectedBookingService.price || 2000}
+                            <span className="text-xs font-bold text-purple-900/60 ml-0.5">/ hr</span>
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedProvider(provider);
+                            setBookingStep("config");
+                            setBookingTime(provider.availableFrom || "06:00 PM");
+                          }}
+                          className="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-xs shadow-md shadow-pink-500/20 hover:opacity-95 hover:scale-102 active:scale-98 transition-all flex items-center gap-1.5"
+                        >
+                          <span>Select & Book</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -837,9 +923,15 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <p className="text-[11px] text-purple-900/60 leading-relaxed italic">
-                  Demo Payment Simulation: Upon confirmation, booking status will be set to <span className="font-bold text-purple-950">PAID</span>, and your 6-digit Connection Code & Partner Contact details will be made available.
-                </p>
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200/80 text-[11px] text-purple-900/80 flex items-start gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-pink-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-extrabold text-purple-950 block">Official Razorpay Secured Checkout</span>
+                    <p className="mt-0.5 leading-relaxed text-purple-900/70">
+                      Supports UPI (GPay, PhonePe, Paytm), Credit/Debit Cards & Netbanking. Upon verification, your booking is confirmed with an instant 6-digit Connection OTP.
+                    </p>
+                  </div>
+                </div>
 
                 <div className="pt-2 flex gap-3">
                   <button
@@ -858,10 +950,13 @@ export default function DashboardPage() {
                     {purchasing ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin text-white" />
-                        <span>Processing Payment...</span>
+                        <span>Opening Razorpay...</span>
                       </>
                     ) : (
-                      <span>Pay & Confirm Booking</span>
+                      <>
+                        <CreditCard className="w-4 h-4" />
+                        <span>Pay ₹{totalAmount} with Razorpay</span>
+                      </>
                     )}
                   </button>
                 </div>
@@ -937,43 +1032,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Modal for unavailable service booking attempt */}
-      {unavailableModalService && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-purple-950/40 backdrop-blur-sm">
-          <div className="max-w-md w-full p-6 sm:p-8 rounded-3xl bg-white border border-pink-200 shadow-2xl space-y-4 relative">
-            <button
-              onClick={() => setUnavailableModalService(null)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-pink-50 text-purple-950 flex items-center justify-center hover:bg-pink-100"
-            >
-              <X className="w-4 h-4" />
-            </button>
 
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-xl font-extrabold text-purple-950">
-                Partner Unavailable
-              </h3>
-              <p className="text-sm text-purple-900/70">
-                No Partner is currently available for{" "}
-                <span className="font-extrabold text-pink-600">{unavailableModalService}</span> in your selected location.
-              </p>
-              <p className="text-xs text-purple-900/60">
-                Please check back soon or explore other available services on RentasBuddy.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setUnavailableModalService(null)}
-              className="w-full py-3 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-extrabold text-xs shadow-md shadow-pink-500/20"
-            >
-              Understand & Explore Other Services
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Customer Location Onboarding & Search Modal */}
       {isLocationModalOpen && (
@@ -1200,7 +1259,7 @@ export default function DashboardPage() {
                 return (
                   <StaggerItem key={service.id}>
                     <div className="p-6 rounded-3xl bg-white/90 backdrop-blur-xl border border-pink-200/80 shadow-md hover:shadow-xl hover:border-pink-300 transition-all flex flex-col justify-between space-y-4">
-                      <div className="space-y-3">
+                      <Link href={`/services/${encodeURIComponent(service.id)}`} className="group/card block space-y-3 cursor-pointer">
                         {service.imageUrl && (
                           <div className="relative h-44 w-full rounded-2xl overflow-hidden bg-purple-50">
                             <Image
@@ -1208,7 +1267,7 @@ export default function DashboardPage() {
                               alt={service.serviceName}
                               fill
                               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                              className="object-cover"
+                              className="object-cover group-hover/card:scale-105 transition-transform duration-300"
                             />
                             <span className="absolute top-3 right-3 px-3 py-1 rounded-full bg-white/90 backdrop-blur-md text-[10px] font-extrabold text-purple-950 border border-pink-200 shadow-sm">
                               {service.category}
@@ -1217,14 +1276,14 @@ export default function DashboardPage() {
                         )}
 
                         <div>
-                          <h3 className="font-extrabold text-purple-950 text-lg">
+                          <h3 className="font-extrabold text-purple-950 text-lg group-hover/card:text-pink-600 transition-colors">
                             {service.serviceName}
                           </h3>
                           <p className="text-xs text-purple-900/70 line-clamp-2 mt-1 leading-relaxed">
                             {service.description}
                           </p>
                         </div>
-                      </div>
+                      </Link>
 
                       <div className="pt-3 border-t border-pink-100 space-y-3">
                         <div className="flex items-center justify-between text-xs">
@@ -1240,25 +1299,20 @@ export default function DashboardPage() {
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
                               isAvailable
                                 ? "bg-emerald-100 text-emerald-800"
-                                : "bg-amber-100 text-amber-800"
+                                : "bg-purple-100 text-purple-800"
                             }`}
                           >
                             <Users className="w-3 h-3" />
-                            {isAvailable ? `${count} Available` : "No Partner Available"}
+                            {isAvailable ? `${count} Available` : "Explore Partners"}
                           </span>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleBookClick(service)}
-                          className={`w-full py-2.5 rounded-2xl font-extrabold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 ${
-                            isAvailable
-                              ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-pink-500/20 hover:opacity-95"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
-                          }`}
+                        <Link
+                          href={`/services/${encodeURIComponent(service.id)}`}
+                          className="w-full py-2.5 rounded-2xl font-extrabold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-pink-500/20 hover:opacity-95 cursor-pointer"
                         >
-                          {isAvailable ? "Book Now" : "Check Availability"}
-                        </button>
+                          <span>Book Now • Filter Partners →</span>
+                        </Link>
                       </div>
                     </div>
                   </StaggerItem>

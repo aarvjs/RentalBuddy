@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getRazorpayClient } from "@/lib/razorpay";
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
     }
 
     const calculatedTotal = Math.max(1, Math.round(rate * durationHours));
-    const amountInPaise = Math.round(calculatedTotal * 100);
+    const amountInPaise = Math.max(100, Math.round(calculatedTotal * 100));
 
     // 3. Create Razorpay Order
     const razorpay = getRazorpayClient();

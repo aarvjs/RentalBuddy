@@ -40,8 +40,30 @@ body {
   min-height: 100vh;
 }
 
-button, input, select, textarea {
+button, 
+[role="button"],
+[type="button"], 
+[type="submit"], 
+[type="reset"], 
+select, 
+summary {
   font-family: inherit;
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+[type="button"]:disabled,
+[type="submit"]:disabled {
+  cursor: not-allowed;
+}
+
+input, textarea {
+  font-family: inherit;
+}
+
+a {
+  cursor: pointer;
 }
 
 /* Custom Utilities */

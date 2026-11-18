@@ -178,11 +178,6 @@ export async function setFirestoreDocServer(
   }
 
   // REST API fallback
-  const fieldMask = Object.keys(data)
-    .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
-    .join("&");
-  const maskParam = fieldMask ? `&${fieldMask}` : "";
-  const patchUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${docId}?key=${apiKey}${maskParam}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -194,30 +189,53 @@ export async function setFirestoreDocServer(
     fields: encodeFirestoreFields(data),
   };
 
-  const res = await fetch(patchUrl, {
-    method: "PATCH",
-    headers,
-    body: JSON.stringify(payload),
-  });
+  // Attempt 1: PATCH with updateMask for merge behavior
+  const fieldMask = Object.keys(data)
+    .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
+    .join("&");
+  const maskParam = fieldMask ? `&${fieldMask}` : "";
+  const patchUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${docId}?key=${apiKey}${maskParam}`;
 
-  if (res.ok) {
-    return;
+  try {
+    const res = await fetch(patchUrl, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      return;
+    }
+
+    // Attempt 2: If document does not exist yet (404), upsert full document without mask
+    const upsertUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${docId}?key=${apiKey}`;
+    const upsertRes = await fetch(upsertUrl, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (upsertRes.ok) {
+      return;
+    }
+
+    // Attempt 3: POST to collection with ?documentId=
+    const postUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?documentId=${docId}&key=${apiKey}`;
+    const postRes = await fetch(postUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (postRes.ok) {
+      return;
+    }
+
+    const errText = await upsertRes.text().catch(() => "Unknown write error");
+    console.warn(`Firestore REST write warning (${upsertRes.status}): ${errText}`);
+  } catch (err: any) {
+    console.warn("Server-side Firestore write exception:", err?.message || err);
   }
-
-  // If PATCH failed (e.g., document doesn't exist yet), attempt POST with ?documentId=
-  const postUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?documentId=${docId}&key=${apiKey}`;
-  const postRes = await fetch(postUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-
-  if (postRes.ok) {
-    return;
-  }
-
-  const errText = await res.text();
-  throw new Error(`Firestore REST write error (${res.status}): ${errText}`);
 }
 
 /**

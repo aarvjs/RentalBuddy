@@ -122,7 +122,7 @@ export default function ServicesCatalogPage() {
               <Link
                 key={service.id}
                 href={`/services/${serviceSlug}`}
-                className="group rounded-3xl bg-white border border-pink-100 shadow-md hover:shadow-2xl hover:border-pink-300 hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col justify-between"
+                className="group rounded-3xl bg-white border border-pink-100 shadow-md hover:shadow-2xl hover:border-pink-300 hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer"
               >
                 <div>
                   <div className="relative h-44 w-full overflow-hidden">

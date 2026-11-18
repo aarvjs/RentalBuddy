@@ -3,7 +3,7 @@
 import React, { useState, useEffect, use } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useParams } from "next/navigation";
 import {
   Sparkles,
   MapPin,
@@ -32,11 +32,11 @@ import { loadRazorpayScript } from "@/lib/razorpay-client";
 function parseTimeString(timeStr?: string): number {
   if (!timeStr) return 0;
   const cleanStr = timeStr.split("–")[0].split("-")[0].trim();
-  const match = cleanStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  const match = cleanStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)?/i);
   if (!match) return 0;
   let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const ampm = match[3] ? match[3].toUpperCase() : "AM";
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const ampm = match[3] ? match[3].toUpperCase() : null;
   if (ampm === "PM" && hours < 12) hours += 12;
   if (ampm === "AM" && hours === 12) hours = 0;
   return hours * 60 + minutes;
@@ -95,12 +95,31 @@ interface BookingSuccessInfo {
 }
 
 interface PageProps {
-  params: Promise<{ providerId: string }>;
+  params?: Promise<{ providerId: string }> | { providerId: string };
 }
 
 export default function ProviderDetailPage({ params }: PageProps) {
-  const resolvedParams = use(params);
-  const providerId = resolvedParams.providerId;
+  const routeParams = useParams();
+
+  let rawProviderId = "";
+  if (routeParams && routeParams.providerId) {
+    rawProviderId = Array.isArray(routeParams.providerId)
+      ? routeParams.providerId[0]
+      : (routeParams.providerId as string);
+  } else if (params) {
+    if (typeof (params as any)?.then === "function") {
+      try {
+        const unwrapped = use(params as Promise<{ providerId: string }>);
+        if (unwrapped?.providerId) rawProviderId = unwrapped.providerId;
+      } catch {
+        // fallback
+      }
+    } else if ((params as any)?.providerId) {
+      rawProviderId = (params as any).providerId;
+    }
+  }
+
+  const providerId = decodeURIComponent(rawProviderId || "");
   const searchParams = useSearchParams();
   const serviceIdParam = searchParams.get("serviceId");
 

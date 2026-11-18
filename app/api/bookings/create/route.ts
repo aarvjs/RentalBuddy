@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import crypto from "crypto";
@@ -12,11 +13,11 @@ import {
 function parseTimeString(timeStr?: string): number {
   if (!timeStr) return 0;
   const cleanStr = timeStr.split("–")[0].split("-")[0].trim();
-  const match = cleanStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  const match = cleanStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)?/i);
   if (!match) return 0;
   let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const ampm = match[3] ? match[3].toUpperCase() : "AM";
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const ampm = match[3] ? match[3].toUpperCase() : null;
   if (ampm === "PM" && hours < 12) hours += 12;
   if (ampm === "AM" && hours === 12) hours = 0;
   return hours * 60 + minutes;
