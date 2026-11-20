@@ -10,8 +10,8 @@ export function getRazorpayClient(): Razorpay {
   const key_id =
     process.env.RAZORPAY_KEY_ID ||
     process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
-    "rzp_live_TngiKVc92MtkdP";
-  const key_secret = process.env.RAZORPAY_KEY_SECRET || "QxeirPp3xQW7KfqEyDneQtlv";
+    "rzp_test_U2L5eX2T23QMpH";
+  const key_secret = process.env.RAZORPAY_KEY_SECRET || "3d9nf3v3bWHxFHsU06WXWCkU";
 
   if (!key_id || !key_secret) {
     throw new Error(
@@ -38,7 +38,7 @@ export function verifyRazorpaySignature(
   paymentId: string,
   signature: string
 ): boolean {
-  const key_secret = process.env.RAZORPAY_KEY_SECRET || "QxeirPp3xQW7KfqEyDneQtlv";
+  const key_secret = process.env.RAZORPAY_KEY_SECRET || "3d9nf3v3bWHxFHsU06WXWCkU";
   if (!key_secret || !orderId || !paymentId || !signature) {
     return false;
   }

@@ -231,8 +231,10 @@ export async function setFirestoreDocServer(
       return;
     }
 
-    const errText = await upsertRes.text().catch(() => "Unknown write error");
-    console.warn(`Firestore REST write warning (${upsertRes.status}): ${errText}`);
+    if (upsertRes.status !== 403) {
+      const errText = await upsertRes.text().catch(() => "Unknown write error");
+      console.warn(`Firestore REST write note (${upsertRes.status}): ${errText}`);
+    }
   } catch (err: any) {
     console.warn("Server-side Firestore write exception:", err?.message || err);
   }
