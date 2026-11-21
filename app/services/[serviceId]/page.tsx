@@ -34,7 +34,7 @@ import {
 import { LocationSearchSelector, ServiceLocationData } from "@/components/location/LocationSearchSelector";
 import { updateUserProfile, db } from "@/lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { loadRazorpayScript } from "@/lib/razorpay-client";
+import { loadRazorpayScript, DEFAULT_RAZORPAY_KEY_ID } from "@/lib/razorpay-client";
 
 function parseTimeString(timeStr?: string): number {
   if (!timeStr) return 0;
@@ -497,8 +497,13 @@ export default function ServiceDiscoveryPage({ params }: PageProps) {
       };
 
       // 3. Launch official Razorpay Checkout modal
+      const effectiveKeyId =
+        keyId ||
+        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
+        DEFAULT_RAZORPAY_KEY_ID;
+
       const options = {
-        key: keyId,
+        key: effectiveKeyId,
         amount: amountInPaise,
         currency: "INR",
         name: "RentasBuddy",

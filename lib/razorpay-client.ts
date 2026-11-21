@@ -1,5 +1,8 @@
 "use client";
 
+export const DEFAULT_RAZORPAY_KEY_ID =
+  process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_U2L5eX2T23QMpH";
+
 declare global {
   interface Window {
     Razorpay?: any;

@@ -47,7 +47,7 @@ import {
 } from "@/lib/service-provider/provider-services";
 import { LocationSearchSelector, ServiceLocationData } from "@/components/location/LocationSearchSelector";
 import { isValidLocation } from "@/lib/locations";
-import { loadRazorpayScript } from "@/lib/razorpay-client";
+import { loadRazorpayScript, DEFAULT_RAZORPAY_KEY_ID } from "@/lib/razorpay-client";
 
 export interface EnrolledProviderInfo {
   providerId: string;
@@ -494,8 +494,13 @@ export default function DashboardPage() {
       };
 
       // 3. Launch official Razorpay Checkout modal
+      const effectiveKeyId =
+        keyId ||
+        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
+        DEFAULT_RAZORPAY_KEY_ID;
+
       const options = {
-        key: keyId,
+        key: effectiveKeyId,
         amount: amountInPaise,
         currency: "INR",
         name: "RentasBuddy",

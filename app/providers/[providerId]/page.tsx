@@ -27,7 +27,7 @@ import {
   getServiceById,
   MasterServiceItem,
 } from "@/lib/service-provider/provider-services";
-import { loadRazorpayScript } from "@/lib/razorpay-client";
+import { loadRazorpayScript, DEFAULT_RAZORPAY_KEY_ID } from "@/lib/razorpay-client";
 
 function parseTimeString(timeStr?: string): number {
   if (!timeStr) return 0;
@@ -284,8 +284,13 @@ export default function ProviderDetailPage({ params }: PageProps) {
       };
 
       // 3. Launch official Razorpay Checkout modal
+      const effectiveKeyId =
+        keyId ||
+        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
+        DEFAULT_RAZORPAY_KEY_ID;
+
       const options = {
-        key: keyId,
+        key: effectiveKeyId,
         amount: amountInPaise,
         currency: "INR",
         name: "RentasBuddy",
