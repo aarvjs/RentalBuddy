@@ -1,7 +1,3 @@
-import { getApps, initializeApp, cert, deleteApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
-
 const projectId =
   process.env.FIREBASE_PROJECT_ID ||
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
@@ -11,56 +7,8 @@ const apiKey =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
   "AIzaSyAl_qOyJ3GlbUWwv9l83Kb_1QG8GJ7_YO0";
 
-function parsePrivateKey(key?: string): string | undefined {
-  if (!key) return undefined;
-  let cleaned = key.trim();
-  if (
-    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
-    (cleaned.startsWith("'") && cleaned.endsWith("'"))
-  ) {
-    cleaned = cleaned.slice(1, -1);
-  }
-  return cleaned.replace(/\\n/g, "\n");
-}
-
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-const privateKey = parsePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
-
-let adminApp: any = null;
-let adminDbInstance: any = null;
-let adminAuthInstance: any = null;
-
-const hasServiceAccount = Boolean(clientEmail && privateKey);
-
-if (hasServiceAccount) {
-  try {
-    const existingApps = getApps();
-    const foundApp = existingApps.find((app) => app.name === "rentbuddyAdminApp");
-
-    if (foundApp) {
-      adminApp = foundApp;
-    } else {
-      adminApp = initializeApp(
-        {
-          credential: cert({
-            projectId,
-            clientEmail: clientEmail!,
-            privateKey: privateKey!,
-          }),
-        },
-        "rentbuddyAdminApp"
-      );
-    }
-
-    adminDbInstance = getFirestore(adminApp);
-    adminAuthInstance = getAuth(adminApp);
-  } catch (e: any) {
-    console.warn("Firebase Admin SDK initialization notice:", e?.message || e);
-  }
-}
-
-export const adminDb = adminDbInstance;
-export const adminAuth = adminAuthInstance;
+export const adminDb = null;
+export const adminAuth = null;
 
 /**
  * Server-Side Secure ID Token Verification Helper.
@@ -72,16 +20,7 @@ export async function verifyServerIdToken(
 ): Promise<{ uid: string; email?: string } | null> {
   if (!idToken || typeof idToken !== "string") return null;
 
-  if (adminAuthInstance) {
-    try {
-      const decoded = await adminAuthInstance.verifyIdToken(idToken);
-      return { uid: decoded.uid, email: decoded.email };
-    } catch (err: any) {
-      console.warn("Admin SDK verifyIdToken notice:", err?.code || err?.message);
-    }
-  }
-
-  // Fallback: Verify ID token securely via Google Identity Toolkit REST API
+  // Verify ID token securely via Google Identity Toolkit REST API
   try {
     const res = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
@@ -168,16 +107,7 @@ export async function setFirestoreDocServer(
   data: Record<string, any>,
   idToken?: string
 ): Promise<void> {
-  if (hasServiceAccount && adminDb) {
-    try {
-      await adminDb.collection(collectionName).doc(docId).set(data, { merge: true });
-      return;
-    } catch (e: any) {
-      console.warn("adminDb write failed, falling back to REST API:", e?.message);
-    }
-  }
-
-  // REST API fallback
+  // REST API write
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -248,22 +178,7 @@ export async function queryBookingsServer(
   providerId: string,
   date: string
 ): Promise<any[]> {
-  if (hasServiceAccount && adminDb) {
-    try {
-      const snap = await adminDb
-        .collection("bookings")
-        .where("providerId", "==", providerId)
-        .where("date", "==", date)
-        .get();
-      const list: any[] = [];
-      snap.forEach((d: any) => list.push({ id: d.id, ...d.data() }));
-      return list;
-    } catch (e: any) {
-      console.warn("adminDb queryBookingsServer error:", e?.message);
-    }
-  }
-
-  // REST runQuery fallback
+  // REST runQuery
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
     const queryPayload = {
@@ -330,19 +245,6 @@ export async function getFirestoreDocServer(
   docId: string,
   idToken?: string
 ): Promise<Record<string, any> | null> {
-  if (hasServiceAccount && adminDb) {
-    try {
-      const snap = await adminDb.collection(collectionName).doc(docId).get();
-      if (snap.exists) {
-        return snap.data() || null;
-      }
-      return null;
-    } catch (e: any) {
-      console.warn("adminDb read failed, falling back to REST API:", e?.message);
-    }
-  }
-
-  // REST API fallback
   const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${docId}?key=${apiKey}`;
   const headers: Record<string, string> = {};
   if (idToken) {

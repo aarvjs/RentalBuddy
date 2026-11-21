@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const authHeader = request.headers.get("Authorization");
     const idToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : "";
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const { bookingId, otp, providerId } = body;
 
     if (!bookingId || !otp || !providerId) {

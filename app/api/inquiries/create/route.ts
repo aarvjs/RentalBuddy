@@ -5,7 +5,7 @@ import { setFirestoreDocServer } from "@/lib/firebase-admin";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const { name, email, phone, occasion, destination, notes } = body;
 
     if (!name || !email) {

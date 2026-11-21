@@ -51,5 +51,10 @@ export async function updateBookingStatus(
 
   // Fallback to client-side updateDoc
   const docRef = doc(db, "bookings", bookingId);
-  await updateDoc(docRef, { status, updatedAt: new Date().toISOString() });
+  const now = new Date().toISOString();
+  await updateDoc(docRef, {
+    status,
+    updatedAt: now,
+    ...(status === "completed" ? { completedAt: now } : {}),
+  });
 }

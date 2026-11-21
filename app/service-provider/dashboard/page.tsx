@@ -7,7 +7,8 @@ import { getProviderProfile } from "@/lib/service-provider/provider-auth";
 import { getProviderServices } from "@/lib/service-provider/provider-services";
 import { getProviderBookings } from "@/lib/service-provider/provider-bookings";
 import { getProviderEarningsSummary } from "@/lib/service-provider/provider-earnings";
-import { ProviderProfile, ProviderService, ProviderBooking, EarningsSummary } from "@/types/service-provider";
+import { updateBookingStatus } from "@/lib/service-provider/provider-bookings";
+import { ProviderProfile, ProviderService, ProviderBooking, EarningsSummary, BookingStatus } from "@/types/service-provider";
 import { DashboardStats } from "@/components/service-provider/DashboardStats";
 import { KycStatusCard } from "@/components/service-provider/KycStatusCard";
 import { BookingCard } from "@/components/service-provider/BookingCard";
@@ -67,6 +68,17 @@ export default function ServiceProviderDashboardPage() {
     setBookings((prev) =>
       prev.map((b) => (b.id === bookingId ? { ...b, connectionStatus: "connected", connectionOtpUsed: true } : b))
     );
+  };
+
+  const handleStatusChange = async (bookingId: string, status: BookingStatus) => {
+    try {
+      await updateBookingStatus(bookingId, status);
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status } : b))
+      );
+    } catch (err) {
+      console.error("Failed to update booking status from dashboard:", err);
+    }
   };
 
   if (loading) {
@@ -218,6 +230,7 @@ export default function ServiceProviderDashboardPage() {
               <BookingCard
                 key={b.id}
                 booking={b}
+                onStatusChange={handleStatusChange}
                 onVerifyClick={(selectedBooking) => setVerifyingBooking(selectedBooking)}
               />
             ))}
